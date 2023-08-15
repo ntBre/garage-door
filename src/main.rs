@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn de_response() {
-        let s = read_to_string("response.json").unwrap();
+        let s = read_to_string("testfiles/response.json").unwrap();
         let c: CollectionGetResponse = serde_json::from_str(&s).unwrap();
         dbg!(c);
     }
