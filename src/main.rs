@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use collection::CollectionGetResponse;
 use reqwest::Client;
 use serde::Serialize;
 
@@ -46,7 +47,10 @@ impl FractalClient {
 }
 
 mod collection {
-    use serde::Serialize;
+    use std::collections::HashMap;
+
+    use serde::{Deserialize, Serialize};
+    use serde_json::Value;
 
     #[derive(Serialize)]
     struct QueryFilter {
@@ -87,6 +91,26 @@ mod collection {
             serde_json::to_string(&self)
         }
     }
+
+    #[derive(Debug, Deserialize)]
+    pub struct Record {
+        name: String,
+    }
+
+    /// the important fields in a [CollectionGetResponse]
+    #[derive(Debug, Deserialize)]
+    pub struct DataSet {
+        id: String,
+        collection: String,
+        name: String,
+        records: HashMap<String, Record>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct CollectionGetResponse {
+        meta: HashMap<String, Value>,
+        data: Vec<DataSet>,
+    }
 }
 
 #[tokio::main]
@@ -97,5 +121,20 @@ async fn main() {
     );
     let client = FractalClient::new();
     let response = client.get(collection).await;
+    let response: CollectionGetResponse = response.json().await.unwrap();
     dbg!(response);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::read_to_string;
+
+    use super::*;
+
+    #[test]
+    fn de_response() {
+        let s = read_to_string("response.json").unwrap();
+        let c: CollectionGetResponse = serde_json::from_str(&s).unwrap();
+        dbg!(c);
+    }
 }
