@@ -1,10 +1,4 @@
-#![allow(unused)]
-
-use std::collections::HashMap;
-
-use collection::CollectionGetResponse;
-use reqwest::Client;
-use serde::Serialize;
+use reqwest::{header::HeaderMap, Client};
 
 use crate::collection::CollectionGetBody;
 
@@ -12,8 +6,7 @@ const ADDR: &str = "https://api.qcarchive.molssi.org:443/";
 
 struct FractalClient {
     address: &'static str,
-    headers: HashMap<String, String>,
-    encoding: &'static str,
+    headers: HeaderMap,
     client: Client,
 }
 
@@ -21,16 +14,13 @@ impl FractalClient {
     fn new() -> Self {
         let mut ret = Self {
             address: ADDR,
-            headers: HashMap::new(),
-            encoding: "msgpack-ext",
+            headers: HeaderMap::new(),
             client: Client::new(),
         };
-        ret.headers.insert(
-            "Content-Type".to_owned(),
-            "application/msgpack-ext".to_owned(),
-        );
         ret.headers
-            .insert("User-Agent".to_owned(), "qcportal/0.15.7".to_owned());
+            .insert("Content-Type", "application/json".parse().unwrap());
+        ret.headers
+            .insert("User-Agent", "qcportal/0.15.7".parse().unwrap());
         ret
     }
 
@@ -39,7 +29,7 @@ impl FractalClient {
         self.client
             .get(url)
             .body(collection.to_json().unwrap())
-            .header("Content-Type", "application/json")
+            .headers(self.headers.clone())
             .send()
             .await
             .unwrap()
@@ -94,22 +84,22 @@ mod collection {
 
     #[derive(Debug, Deserialize)]
     pub struct Record {
-        name: String,
+        pub name: String,
     }
 
     /// the important fields in a [CollectionGetResponse]
     #[derive(Debug, Deserialize)]
     pub struct DataSet {
-        id: String,
-        collection: String,
-        name: String,
-        records: HashMap<String, Record>,
+        pub id: String,
+        pub collection: String,
+        pub name: String,
+        pub records: HashMap<String, Record>,
     }
 
     #[derive(Debug, Deserialize)]
     pub struct CollectionGetResponse {
-        meta: HashMap<String, Value>,
-        data: Vec<DataSet>,
+        pub meta: HashMap<String, Value>,
+        pub data: Vec<DataSet>,
     }
 }
 
@@ -121,15 +111,15 @@ async fn main() {
     );
     let client = FractalClient::new();
     let response = client.get(collection).await;
-    let response: CollectionGetResponse = response.json().await.unwrap();
-    dbg!(response);
+    dbg!(&response);
+    println!("{}", response.text().await.unwrap());
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
 
-    use super::*;
+    use crate::collection::CollectionGetResponse;
 
     #[test]
     fn de_response() {
