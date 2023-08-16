@@ -63,3 +63,9 @@ impl FractalClient {
             .unwrap()
     }
 }
+
+impl Default for FractalClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}

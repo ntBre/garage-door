@@ -1,18 +1,8 @@
-use client::FractalClient;
-use procedure::ProcedureGetBody;
-
-use collection::CollectionGetBody;
-
-use crate::{
-    collection::CollectionGetResponse, procedure::ProcedureGetResponse,
+use garage_door::{
+    client::FractalClient,
+    collection::{CollectionGetBody, CollectionGetResponse},
+    procedure::{ProcedureGetBody, ProcedureGetResponse},
 };
-
-mod client;
-mod collection;
-mod procedure;
-
-#[cfg(test)]
-mod tests;
 
 #[tokio::main]
 async fn main() {
