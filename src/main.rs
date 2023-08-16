@@ -22,5 +22,15 @@ async fn main() {
     // only keep the complete records
     response.data.retain(|r| r.status.is_complete());
 
-    let _optimization_ids = response.optimization_ids();
+    let optimization_ids = response.optimization_ids();
+
+    println!(
+        "{}",
+        client
+            .get_procedure(ProcedureGetBody::new(optimization_ids))
+            .await
+            .text()
+            .await
+            .unwrap()
+    );
 }
