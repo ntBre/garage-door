@@ -24,7 +24,10 @@ impl FractalClient {
         ret
     }
 
-    async fn get(&self, collection: CollectionGetBody) -> reqwest::Response {
+    async fn get_collection(
+        &self,
+        collection: CollectionGetBody,
+    ) -> reqwest::Response {
         let url = format!("{}collection", self.address);
         self.client
             .get(url)
@@ -110,7 +113,7 @@ async fn main() {
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
     let client = FractalClient::new();
-    let response = client.get(collection).await;
+    let response = client.get_collection(collection).await;
     dbg!(&response);
     println!("{}", response.text().await.unwrap());
 }
