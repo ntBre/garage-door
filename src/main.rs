@@ -10,6 +10,9 @@ use crate::{
 mod collection;
 mod procedure;
 
+#[cfg(test)]
+mod tests;
+
 struct FractalClient {
     address: &'static str,
     headers: HeaderMap,
@@ -91,27 +94,4 @@ async fn main() {
     response.data.retain(|r| r.status.is_complete());
 
     let _optimization_ids = response.optimization_ids();
-}
-
-#[cfg(test)]
-mod tests {
-    use std::fs::read_to_string;
-
-    use crate::{
-        collection::CollectionGetResponse, procedure::ProcedureGetResponse,
-    };
-
-    #[test]
-    fn de_response() {
-        let s = read_to_string("testfiles/response.json").unwrap();
-        let c: CollectionGetResponse = serde_json::from_str(&s).unwrap();
-        dbg!(c);
-    }
-
-    #[test]
-    fn de_procedure() {
-        let s = read_to_string("testfiles/procedure.json").unwrap();
-        let c: ProcedureGetResponse = serde_json::from_str(&s).unwrap();
-        dbg!(c);
-    }
 }
