@@ -3,7 +3,9 @@ use reqwest::{header::HeaderMap, Client};
 
 use collection::CollectionGetBody;
 
-use crate::collection::CollectionGetResponse;
+use crate::{
+    collection::CollectionGetResponse, procedure::ProcedureGetResponse,
+};
 
 mod collection;
 mod procedure;
@@ -72,23 +74,23 @@ impl FractalClient {
 
 #[tokio::main]
 async fn main() {
-    let collection = CollectionGetBody::new(
+    let col = CollectionGetBody::new(
         "torsiondrivedataset",
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
     let client = FractalClient::new();
     // this doesn't really seem necessary, but they do call it
     client.get_information().await;
-    let response: CollectionGetResponse = client
-        .get_collection(collection)
-        .await
-        .json()
-        .await
-        .unwrap();
+    let response: CollectionGetResponse =
+        client.get_collection(col).await.json().await.unwrap();
 
     let proc = ProcedureGetBody::new(response.ids());
-    let response = client.get_procedure(proc).await;
-    println!("{}", response.text().await.unwrap());
+    let mut response: ProcedureGetResponse =
+        client.get_procedure(proc).await.json().await.unwrap();
+    // only keep the complete records
+    response.data.retain(|r| r.status.is_complete());
+
+    let _optimization_ids = response.optimization_ids();
 }
 
 #[cfg(test)]
