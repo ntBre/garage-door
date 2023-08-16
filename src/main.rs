@@ -1,8 +1,12 @@
+use procedure::ProcedureGetBody;
 use reqwest::{header::HeaderMap, Client};
 
-use crate::collection::CollectionGetBody;
+use collection::CollectionGetBody;
 
-const ADDR: &str = "https://api.qcarchive.molssi.org:443/";
+use crate::collection::CollectionGetResponse;
+
+mod collection;
+mod procedure;
 
 struct FractalClient {
     address: &'static str,
@@ -12,6 +16,7 @@ struct FractalClient {
 
 impl FractalClient {
     fn new() -> Self {
+        const ADDR: &str = "https://api.qcarchive.molssi.org:443/";
         let mut ret = Self {
             address: ADDR,
             headers: HeaderMap::new(),
@@ -22,6 +27,18 @@ impl FractalClient {
         ret.headers
             .insert("User-Agent", "qcportal/0.15.7".parse().unwrap());
         ret
+    }
+
+    async fn get_information(&self) {
+        let url = format!("{}information", self.address);
+        let response = self
+            .client
+            .get(url)
+            .headers(self.headers.clone())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
     }
 
     async fn get_collection(
@@ -37,72 +54,19 @@ impl FractalClient {
             .await
             .unwrap()
     }
-}
 
-mod collection {
-    use std::collections::HashMap;
-
-    use serde::{Deserialize, Serialize};
-    use serde_json::Value;
-
-    #[derive(Serialize)]
-    struct QueryFilter {
-        include: Option<bool>,
-        exclude: Option<bool>,
-    }
-
-    #[derive(Serialize)]
-    struct Data {
-        collection: String,
-        name: String,
-    }
-
-    #[derive(Serialize)]
-    pub struct CollectionGetBody {
-        meta: QueryFilter,
-        data: Data,
-    }
-
-    impl CollectionGetBody {
-        pub fn new(
-            collection: impl Into<String>,
-            name: impl Into<String>,
-        ) -> Self {
-            Self {
-                meta: QueryFilter {
-                    include: None,
-                    exclude: None,
-                },
-                data: Data {
-                    collection: collection.into(),
-                    name: name.into(),
-                },
-            }
-        }
-
-        pub fn to_json(&self) -> Result<String, serde_json::Error> {
-            serde_json::to_string(&self)
-        }
-    }
-
-    #[derive(Debug, Deserialize)]
-    pub struct Record {
-        pub name: String,
-    }
-
-    /// the important fields in a [CollectionGetResponse]
-    #[derive(Debug, Deserialize)]
-    pub struct DataSet {
-        pub id: String,
-        pub collection: String,
-        pub name: String,
-        pub records: HashMap<String, Record>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    pub struct CollectionGetResponse {
-        pub meta: HashMap<String, Value>,
-        pub data: Vec<DataSet>,
+    async fn get_procedure(
+        &self,
+        collection: ProcedureGetBody,
+    ) -> reqwest::Response {
+        let url = format!("{}procedure", self.address);
+        self.client
+            .get(url)
+            .body(collection.to_json().unwrap())
+            .headers(self.headers.clone())
+            .send()
+            .await
+            .unwrap()
     }
 }
 
@@ -113,8 +77,17 @@ async fn main() {
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
     let client = FractalClient::new();
-    let response = client.get_collection(collection).await;
-    dbg!(&response);
+    // this doesn't really seem necessary, but they do call it
+    client.get_information().await;
+    let response: CollectionGetResponse = client
+        .get_collection(collection)
+        .await
+        .json()
+        .await
+        .unwrap();
+
+    let proc = ProcedureGetBody::new(response.ids());
+    let response = client.get_procedure(proc).await;
     println!("{}", response.text().await.unwrap());
 }
 
