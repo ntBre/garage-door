@@ -11,8 +11,8 @@ async fn main() {
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
     let client = FractalClient::new();
-    // this doesn't really seem necessary, but they do call it
-    client.get_information().await;
+    let info = client.get_information().await.unwrap();
+    println!("{}", info.query_limit);
     let response: CollectionGetResponse =
         client.get_collection(col).await.json().await.unwrap();
 
