@@ -1,14 +1,83 @@
+//! the goal here is to replicate the sequence of Python code:
+//!
+//! ```python
+//! client = FractalClient()
+//! collection = TorsionDriveResultCollection.from_server(
+//!     client=client,
+//!     datasets=[
+//!         "OpenFF multiplicity correction torsion drive data v1.1",
+//!     ],
+//!     spec_name="default",
+//! )
+//! records_and_molecules = collection.to_records()
+//! ```
+//!
+//! Until rodeo can generate Molecules like rdkit, we can't actually replicate
+//! the very last line. The best we can do is return the building blocks of
+//! Molecules and their conformers, as the docs for [make_results] describe.
+
 use std::collections::HashMap;
 
 use garage_door::{
     client::FractalClient,
-    collection::{CollectionGetBody, CollectionGetResponse},
-    molecule::{MoleculeGetBody, MoleculeGetResponse},
+    collection::{
+        CollectionGetBody, CollectionGetResponse, TorsionDriveResult,
+    },
+    molecule::{Molecule, MoleculeGetBody, MoleculeGetResponse},
     procedure::{
         OptimizationRecord, ProcedureGetBody, ProcedureGetResponse,
         TorsionDriveRecord,
     },
 };
+
+/// constructs output usable by qcsubmit. Returns a vector of (record_id,
+/// cmiles, Vec<geometry>), where a geometry is a Vec<f64> to be inserted in a
+/// Molecule._conformers. There's not actually code in qcsubmit to do this
+/// directly, but see results/caching.py:cached_query_torsion_drive_results for
+/// how to reconstruct its output
+fn make_results(
+    results: Vec<TorsionDriveResult>,
+    records: ProcedureGetResponse<TorsionDriveRecord>,
+    molecule_ids: HashMap<(String, String), String>,
+    molecules: HashMap<String, Molecule>,
+) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    // there may be more results than records, but accessing them with this map
+    // by the id stored on the records ensures that I only get the ones I want
+    let cmiles_map: HashMap<_, _> = results
+        .iter()
+        .map(|rec| (rec.record_id(), rec.cmiles()))
+        .collect();
+
+    let mut ret = Vec::new();
+    for record in &records.data {
+        let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
+        grid_ids.sort_by_key(|g| {
+            let x: &[_] = &['[', ']'];
+            g.trim_matches(x).parse::<isize>().unwrap()
+        });
+
+        let mut qc_grid_molecules = Vec::new();
+        for grid_id in &grid_ids {
+            let i = &molecule_ids[&(record.id.clone(), (*grid_id).clone())];
+            qc_grid_molecules.push(molecules[i].clone());
+        }
+
+        println!(
+            "{} => {} => {}",
+            record.id,
+            cmiles_map[&record.id],
+            qc_grid_molecules.len()
+        );
+
+        ret.push((
+            record.id.clone(),
+            cmiles_map[&record.id].clone(),
+            qc_grid_molecules.into_iter().map(|m| m.geometry).collect(),
+        ));
+    }
+
+    ret
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,8 +90,6 @@ async fn main() {
     println!("query_limit = {}", info.query_limit);
     let response: CollectionGetResponse =
         client.get_collection(col).await.json().await.unwrap();
-
-    dbg!(response.ids().contains(&"97609630".to_owned()));
 
     let proc = ProcedureGetBody::new(response.ids());
 
@@ -40,25 +107,6 @@ async fn main() {
     println!("{} torsion drive records", records.data.len());
 
     let optimization_ids = records.optimization_ids();
-    dbg!(optimization_ids.contains(&"97609630".to_owned()));
-
-    // the goal is to replicate the sequence of Python code:
-    //
-    // ```python
-    // client = FractalClient()
-    // collection = TorsionDriveResultCollection.from_server(
-    //     client=client,
-    //     datasets=[
-    //         "OpenFF multiplicity correction torsion drive data v1.1",
-    //     ],
-    //     spec_name="default",
-    // )
-    // records_and_molecules = collection.to_records()
-    // ```
-    //
-    // so far, I can construct the client and retrieve the collection from the
-    // server. and I'm in the middle of calling to_records. the actual record
-    // part is easy enough: just the records from the initial call
 
     // this is a map of optimization_id -> (record_id, grid_id)
     let mut intermediate_ids = HashMap::new();
@@ -88,11 +136,6 @@ async fn main() {
         ids.extend(response.final_molecules());
     }
 
-    // ids somehow contains the value I need to insert into molecule_ids below,
-    // but how in the world do I match them up? I guess they're in the same
-    // order?
-    dbg!(ids.contains(&"97609630".to_owned()));
-
     // now you have ANOTHER level of indirection: take the final_molecule ids
     // from this last get_procedure call and query for them
 
@@ -107,50 +150,8 @@ async fn main() {
             molecules.insert(molecule.id.clone(), molecule);
         }
     }
-    dbg!(molecules
-        .keys()
-        .collect::<Vec<_>>()
-        .contains(&&"97609630".to_owned()));
 
     println!("received {} molecules", molecules.len());
 
-    // at this point I have all of the TorsionDriveRecords and all of the
-    // QCMolecules. these can be transformed to OpenFF Molecules in
-    // _cached_query_single_structure_results, which builds a Molecule from the
-    // record.cmiles and then adds the corresponding QCMolecule.geometries as
-    // conformers. Potentially the last thing for me to do (before rodeo can
-    // generate Molecules like rdkit) is to map the molecules back to their
-    // corresponding torsions
-
-    // there may be more results than records, but accessing them with this map
-    // by the id stored on the records ensures that I only get the ones I want
-    let cmiles_map: HashMap<_, _> = results
-        .iter()
-        .map(|rec| (rec.record_id(), rec.cmiles()))
-        .collect();
-
-    for record in &records.data {
-        let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
-        grid_ids.sort_by_key(|g| {
-            let x: &[_] = &['[', ']'];
-            g.trim_matches(x).parse::<isize>().unwrap()
-        });
-
-        let mut qc_grid_molecules = Vec::new();
-        for grid_id in &grid_ids {
-            let i = &molecule_ids[&(record.id.clone(), (*grid_id).clone())];
-            qc_grid_molecules.push(molecules[i].clone());
-        }
-
-        // need to return Vec<(record, cmiles, Vec<Geometry>)> as described
-        // above. The record is passed along directly; cmiles is used to
-        // construct the initial molecule; and the geometries are used to add
-        // conformers to the Molecule
-        println!(
-            "{} => {} => {}",
-            record.id,
-            cmiles_map[&record.id],
-            qc_grid_molecules.len()
-        );
-    }
+    make_results(results, records, molecule_ids, molecules);
 }
