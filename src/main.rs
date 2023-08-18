@@ -16,68 +16,18 @@
 //! the very last line. The best we can do is return the building blocks of
 //! Molecules and their conformers, as the docs for [make_results] describe.
 
+use garage_door::make_results;
 use std::collections::HashMap;
 
 use garage_door::{
     client::FractalClient,
-    collection::{
-        CollectionGetBody, CollectionGetResponse, TorsionDriveResult,
-    },
-    molecule::{Molecule, MoleculeGetBody, MoleculeGetResponse},
+    collection::{CollectionGetBody, CollectionGetResponse},
+    molecule::{MoleculeGetBody, MoleculeGetResponse},
     procedure::{
         OptimizationRecord, ProcedureGetBody, ProcedureGetResponse,
         TorsionDriveRecord,
     },
 };
-
-/// constructs output usable by qcsubmit. Returns a vector of (record_id,
-/// cmiles, Vec<geometry>), where a geometry is a Vec<f64> to be inserted in a
-/// Molecule._conformers. There's not actually code in qcsubmit to do this
-/// directly, but see results/caching.py:cached_query_torsion_drive_results for
-/// how to reconstruct its output
-fn make_results(
-    results: Vec<TorsionDriveResult>,
-    records: ProcedureGetResponse<TorsionDriveRecord>,
-    molecule_ids: HashMap<(String, String), String>,
-    molecules: HashMap<String, Molecule>,
-) -> Vec<(String, String, Vec<Vec<f64>>)> {
-    // there may be more results than records, but accessing them with this map
-    // by the id stored on the records ensures that I only get the ones I want
-    let cmiles_map: HashMap<_, _> = results
-        .iter()
-        .map(|rec| (rec.record_id(), rec.cmiles()))
-        .collect();
-
-    let mut ret = Vec::new();
-    for record in &records.data {
-        let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
-        grid_ids.sort_by_key(|g| {
-            let x: &[_] = &['[', ']'];
-            g.trim_matches(x).parse::<isize>().unwrap()
-        });
-
-        let mut qc_grid_molecules = Vec::new();
-        for grid_id in &grid_ids {
-            let i = &molecule_ids[&(record.id.clone(), (*grid_id).clone())];
-            qc_grid_molecules.push(molecules[i].clone());
-        }
-
-        println!(
-            "{} => {} => {}",
-            record.id,
-            cmiles_map[&record.id],
-            qc_grid_molecules.len()
-        );
-
-        ret.push((
-            record.id.clone(),
-            cmiles_map[&record.id].clone(),
-            qc_grid_molecules.into_iter().map(|m| m.geometry).collect(),
-        ));
-    }
-
-    ret
-}
 
 #[tokio::main]
 async fn main() {
@@ -87,7 +37,7 @@ async fn main() {
     );
     let client = FractalClient::new();
     let info = client.get_information().await.unwrap();
-    println!("query_limit = {}", info.query_limit);
+    eprintln!("query_limit = {}", info.query_limit);
     let response: CollectionGetResponse =
         client.get_collection(col).await.json().await.unwrap();
 
@@ -104,7 +54,7 @@ async fn main() {
     // only keep the complete records
     records.data.retain(|r| r.status.is_complete());
 
-    println!("{} torsion drive records", records.data.len());
+    eprintln!("{} torsion drive records", records.data.len());
 
     let optimization_ids = records.optimization_ids();
 
@@ -139,7 +89,7 @@ async fn main() {
     // now you have ANOTHER level of indirection: take the final_molecule ids
     // from this last get_procedure call and query for them
 
-    println!("asking for {} molecules", ids.len());
+    eprintln!("asking for {} molecules", ids.len());
 
     let mut molecules = HashMap::with_capacity(ids.len());
     for chunk in ids.chunks(info.query_limit) {
@@ -151,7 +101,7 @@ async fn main() {
         }
     }
 
-    println!("received {} molecules", molecules.len());
+    eprintln!("received {} molecules", molecules.len());
 
     make_results(results, records, molecule_ids, molecules);
 }
