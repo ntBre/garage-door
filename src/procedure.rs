@@ -6,23 +6,7 @@ use std::{collections::HashMap, fmt::Debug};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub enum Status {
-    #[serde(rename = "COMPLETE")]
-    Complete,
-    #[serde(rename = "ERROR")]
-    Error,
-}
-
-impl Status {
-    /// Returns `true` if the status is [`Complete`].
-    ///
-    /// [`Complete`]: Status::Complete
-    #[must_use]
-    pub fn is_complete(&self) -> bool {
-        matches!(self, Self::Complete)
-    }
-}
+use crate::Status;
 
 #[derive(Default, Serialize)]
 struct QueryFilter {
@@ -105,6 +89,7 @@ pub struct TorsionDriveRecord {
 pub struct OptimizationRecord {
     pub id: String,
     pub initial_molecule: String,
+    pub final_molecule: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,6 +109,12 @@ impl ProcedureGetResponse<TorsionDriveRecord> {
             }
         }
         ret
+    }
+}
+
+impl ProcedureGetResponse<OptimizationRecord> {
+    pub fn final_molecules(&self) -> Vec<String> {
+        self.data.iter().map(|r| r.final_molecule.clone()).collect()
     }
 }
 

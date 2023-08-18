@@ -3,7 +3,10 @@ use std::{error::Error, fmt::Display};
 use reqwest::{header::HeaderMap, Client};
 use serde::Deserialize;
 
-use crate::{collection::CollectionGetBody, procedure::ProcedureGetBody};
+use crate::{
+    collection::CollectionGetBody, molecule::MoleculeGetBody,
+    procedure::ProcedureGetBody,
+};
 
 #[derive(Deserialize)]
 pub struct Information {
@@ -76,6 +79,20 @@ impl FractalClient {
         collection: ProcedureGetBody,
     ) -> reqwest::Response {
         let url = format!("{}procedure", self.address);
+        self.client
+            .get(url)
+            .body(collection.to_json().unwrap())
+            .headers(self.headers.clone())
+            .send()
+            .await
+            .unwrap()
+    }
+
+    pub async fn get_molecule(
+        &self,
+        collection: MoleculeGetBody,
+    ) -> reqwest::Response {
+        let url = format!("{}molecule", self.address);
         self.client
             .get(url)
             .body(collection.to_json().unwrap())

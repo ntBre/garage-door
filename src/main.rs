@@ -1,7 +1,11 @@
 use garage_door::{
     client::FractalClient,
     collection::{CollectionGetBody, CollectionGetResponse},
-    procedure::{ProcedureGetBody, ProcedureGetResponse, TorsionDriveRecord},
+    molecule::{MoleculeGetBody, MoleculeGetResponse},
+    procedure::{
+        OptimizationRecord, ProcedureGetBody, ProcedureGetResponse,
+        TorsionDriveRecord,
+    },
 };
 
 #[tokio::main]
@@ -24,13 +28,36 @@ async fn main() {
 
     let optimization_ids = response.optimization_ids();
 
-    println!(
-        "{}",
-        client
-            .get_procedure(ProcedureGetBody::new(optimization_ids))
-            .await
-            .text()
-            .await
-            .unwrap()
-    );
+    // the goal is to replicate the sequence of Python code:
+    //
+    // ```python
+    // client = FractalClient()
+    // collection = TorsionDriveResultCollection.from_server(
+    //     client=client,
+    //     datasets=[
+    //         "OpenFF multiplicity correction torsion drive data v1.1",
+    //     ],
+    //     spec_name="default",
+    // )
+    // records_and_molecules = collection.to_records()
+    // ```
+    //
+    // so far, I can construct the client and retrieve the collection from the
+    // server. and I'm in the middle of calling to_records. the actual record
+    // part is easy enough: just the records from the initial call
+
+    let proc = ProcedureGetBody::new(optimization_ids);
+    let response: ProcedureGetResponse<OptimizationRecord> =
+        client.get_procedure(proc).await.json().await.unwrap();
+
+    let ids = response.final_molecules();
+
+    // now you have ANOTHER level of indirection: take the final_molecule ids
+    // from this last get_procedure call and query for them
+
+    let proc = MoleculeGetBody::new(ids);
+    let response: MoleculeGetResponse =
+        client.get_molecule(proc).await.json().await.unwrap();
+
+    dbg!(response);
 }
