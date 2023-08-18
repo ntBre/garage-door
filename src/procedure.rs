@@ -67,6 +67,18 @@ pub struct TorsionDriveRecord {
     #[serde(rename = "final_energy_dict")]
     pub final_energies: HashMap<String, f64>,
 
+    /// a map of something?
+    ///
+    /// ```json
+    /// "minimum_positions": {
+    ///   "[-15]": 0,
+    ///   "[-30]": 0,
+    ///   "[0]": 0,
+    ///   "[-45]": 2,
+    ///   "[15]": 1,
+    ///   "[-60]": 1,
+    /// }
+    /// ```
     pub minimum_positions: HashMap<String, usize>,
 
     pub status: Status,

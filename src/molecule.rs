@@ -37,13 +37,13 @@ impl MoleculeGetBody {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Identifiers {
     pub molecule_hash: String,
     pub molecular_formula: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Molecule {
     pub symbols: Vec<String>,
     pub geometry: Vec<f64>,

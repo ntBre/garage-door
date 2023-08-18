@@ -22,6 +22,8 @@ async fn main() {
     let response: CollectionGetResponse =
         client.get_collection(col).await.json().await.unwrap();
 
+    dbg!(response.ids().contains(&"97609630".to_owned()));
+
     let proc = ProcedureGetBody::new(response.ids());
 
     let results: Vec<_> = response
@@ -38,6 +40,7 @@ async fn main() {
     println!("{} torsion drive records", records.data.len());
 
     let optimization_ids = records.optimization_ids();
+    dbg!(optimization_ids.contains(&"97609630".to_owned()));
 
     // the goal is to replicate the sequence of Python code:
     //
@@ -57,26 +60,57 @@ async fn main() {
     // server. and I'm in the middle of calling to_records. the actual record
     // part is easy enough: just the records from the initial call
 
+    // this is a map of optimization_id -> (record_id, grid_id)
+    let mut intermediate_ids = HashMap::new();
+    for record in &records.data {
+        for (grid_id, m) in &record.minimum_positions {
+            intermediate_ids.insert(
+                record.optimization_history[grid_id][*m].clone(),
+                (record.id.clone(), grid_id.clone()),
+            );
+        }
+    }
+
+    // this is a map of (record_id, grid_id) -> opt_record_id
+    let mut molecule_ids = HashMap::new();
+
     let mut ids = Vec::with_capacity(optimization_ids.len());
     for chunk in optimization_ids.chunks(info.query_limit) {
         let proc = ProcedureGetBody::new(chunk.to_vec());
         let response: ProcedureGetResponse<OptimizationRecord> =
             client.get_procedure(proc).await.json().await.unwrap();
+        for opt_record in &response.data {
+            molecule_ids.insert(
+                intermediate_ids[&opt_record.id].clone(),
+                opt_record.final_molecule.clone(),
+            );
+        }
         ids.extend(response.final_molecules());
     }
+
+    // ids somehow contains the value I need to insert into molecule_ids below,
+    // but how in the world do I match them up? I guess they're in the same
+    // order?
+    dbg!(ids.contains(&"97609630".to_owned()));
 
     // now you have ANOTHER level of indirection: take the final_molecule ids
     // from this last get_procedure call and query for them
 
     println!("asking for {} molecules", ids.len());
 
-    let mut molecules = Vec::with_capacity(ids.len());
+    let mut molecules = HashMap::with_capacity(ids.len());
     for chunk in ids.chunks(info.query_limit) {
         let proc = MoleculeGetBody::new(chunk.to_vec());
         let response: MoleculeGetResponse =
             client.get_molecule(&proc).await.json().await.unwrap();
-        molecules.extend(response.data);
+        for molecule in response.data {
+            molecules.insert(molecule.id.clone(), molecule);
+        }
     }
+    dbg!(molecules
+        .keys()
+        .collect::<Vec<_>>()
+        .contains(&&"97609630".to_owned()));
 
     println!("received {} molecules", molecules.len());
 
@@ -95,7 +129,28 @@ async fn main() {
         .map(|rec| (rec.record_id(), rec.cmiles()))
         .collect();
 
-    for record in records.data {
-        println!("{} => {}", record.id, cmiles_map[&record.id]);
+    for record in &records.data {
+        let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
+        grid_ids.sort_by_key(|g| {
+            let x: &[_] = &['[', ']'];
+            g.trim_matches(x).parse::<isize>().unwrap()
+        });
+
+        let mut qc_grid_molecules = Vec::new();
+        for grid_id in &grid_ids {
+            let i = &molecule_ids[&(record.id.clone(), (*grid_id).clone())];
+            qc_grid_molecules.push(molecules[i].clone());
+        }
+
+        // need to return Vec<(record, cmiles, Vec<Geometry>)> as described
+        // above. The record is passed along directly; cmiles is used to
+        // construct the initial molecule; and the geometries are used to add
+        // conformers to the Molecule
+        println!(
+            "{} => {} => {}",
+            record.id,
+            cmiles_map[&record.id],
+            qc_grid_molecules.len()
+        );
     }
 }
