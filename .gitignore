@@ -1,2 +1,10 @@
 /target
 __pycache__
+core-td.json
+python/cmiles.dat
+python/debug.dat
+python/get_stats.py
+python/ids.dat
+python/out.dat
+python/slow.prof
+python/tids.dat
