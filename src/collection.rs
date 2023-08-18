@@ -41,20 +41,38 @@ impl CollectionGetBody {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Record {
+struct Attributes {
+    canonical_isomeric_explicit_hydrogen_mapped_smiles: String,
+    inchi_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TorsionDriveResult {
     pub name: String,
 
-    // TODO this shouldn't be pub, at least in this form. I'd rather deserialize
-    // this in a better way. so far, it looks like the key is always "default"
-    // and the value is the record I want to request
+    // there's only one attribute we care about for now
+    attributes: Attributes,
+
     object_map: HashMap<String, String>,
 }
 
-impl Record {
+impl TorsionDriveResult {
     /// return the record's id
-    pub fn id(&self) -> &String {
+    pub fn record_id(&self) -> &String {
         assert_eq!(self.object_map.len(), 1);
         self.object_map.get("default").unwrap()
+    }
+
+    #[inline]
+    pub const fn cmiles(&self) -> &String {
+        &self
+            .attributes
+            .canonical_isomeric_explicit_hydrogen_mapped_smiles
+    }
+
+    #[inline]
+    pub const fn inchi_key(&self) -> &String {
+        &self.attributes.inchi_key
     }
 }
 
@@ -67,7 +85,7 @@ pub struct DataSet {
 
     /// the keys are actually smiles strings, but they appear to be roughly the
     /// same as the `name` field on [Record] itself.
-    pub records: HashMap<String, Record>,
+    pub records: HashMap<String, TorsionDriveResult>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +99,7 @@ impl CollectionGetResponse {
         self.data
             .iter()
             .flat_map(|ds| ds.records.values())
-            .map(|rec| rec.id())
+            .map(|rec| rec.record_id())
             .cloned()
             .collect()
     }
