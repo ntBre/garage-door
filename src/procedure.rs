@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+//! [FractalClient] queries for procedures like [TorsionDrive]s and
+//! [Optimization]s.
+
+use std::{collections::HashMap, fmt::Debug};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -72,7 +75,7 @@ pub struct OptimizationSpec {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Record {
+pub struct TorsionDriveRecord {
     pub id: String,
     pub initial_molecule: Vec<String>,
     pub optimization_spec: OptimizationSpec,
@@ -99,12 +102,18 @@ pub struct Record {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ProcedureGetResponse {
-    pub meta: Value,
-    pub data: Vec<Record>,
+pub struct OptimizationRecord {
+    pub id: String,
+    pub initial_molecule: String,
 }
 
-impl ProcedureGetResponse {
+#[derive(Debug, Deserialize)]
+pub struct ProcedureGetResponse<T> {
+    pub meta: Value,
+    pub data: Vec<T>,
+}
+
+impl ProcedureGetResponse<TorsionDriveRecord> {
     pub fn optimization_ids(&self) -> Vec<String> {
         let mut ret = Vec::new();
         for record in &self.data {
@@ -127,7 +136,8 @@ mod tests {
     #[test]
     fn check_opt_ids() {
         let s = read_to_string("testfiles/procedure.json").unwrap();
-        let mut c: ProcedureGetResponse = serde_json::from_str(&s).unwrap();
+        let mut c: ProcedureGetResponse<TorsionDriveRecord> =
+            serde_json::from_str(&s).unwrap();
         c.data.retain(|f| f.status.is_complete());
         let mut got_ids = c.optimization_ids();
         got_ids.sort();

@@ -1,7 +1,7 @@
 use garage_door::{
     client::FractalClient,
     collection::{CollectionGetBody, CollectionGetResponse},
-    procedure::{ProcedureGetBody, ProcedureGetResponse},
+    procedure::{ProcedureGetBody, ProcedureGetResponse, TorsionDriveRecord},
 };
 
 #[tokio::main]
@@ -17,7 +17,7 @@ async fn main() {
         client.get_collection(col).await.json().await.unwrap();
 
     let proc = ProcedureGetBody::new(response.ids());
-    let mut response: ProcedureGetResponse =
+    let mut response: ProcedureGetResponse<TorsionDriveRecord> =
         client.get_procedure(proc).await.json().await.unwrap();
     // only keep the complete records
     response.data.retain(|r| r.status.is_complete());
