@@ -90,7 +90,7 @@ impl FractalClient {
 
     pub async fn get_molecule(
         &self,
-        collection: MoleculeGetBody,
+        collection: &MoleculeGetBody,
     ) -> reqwest::Response {
         let url = format!("{}molecule", self.address);
         self.client

@@ -55,7 +55,10 @@ pub struct Molecule {
     pub molecular_charge: f64,
 
     pub molecular_multiplicity: usize,
-    pub connectivity: Vec<Vec<usize>>,
+
+    /// tuple of `(atom_index1, atom_index2, bond_order)`
+    pub connectivity: Vec<(usize, usize, f64)>,
+
     pub fix_com: bool,
     pub fix_orientation: bool,
     pub fix_symmetry: String,

@@ -16,7 +16,7 @@ async fn main() {
     );
     let client = FractalClient::new();
     let info = client.get_information().await.unwrap();
-    println!("{}", info.query_limit);
+    println!("query_limit = {}", info.query_limit);
     let response: CollectionGetResponse =
         client.get_collection(col).await.json().await.unwrap();
 
@@ -25,6 +25,8 @@ async fn main() {
         client.get_procedure(proc).await.json().await.unwrap();
     // only keep the complete records
     response.data.retain(|r| r.status.is_complete());
+
+    println!("{} torsion drive records", response.data.len());
 
     let optimization_ids = response.optimization_ids();
 
@@ -46,18 +48,26 @@ async fn main() {
     // server. and I'm in the middle of calling to_records. the actual record
     // part is easy enough: just the records from the initial call
 
-    let proc = ProcedureGetBody::new(optimization_ids);
-    let response: ProcedureGetResponse<OptimizationRecord> =
-        client.get_procedure(proc).await.json().await.unwrap();
-
-    let ids = response.final_molecules();
+    let mut ids = Vec::with_capacity(optimization_ids.len());
+    for chunk in optimization_ids.chunks(info.query_limit) {
+        let proc = ProcedureGetBody::new(chunk.to_vec());
+        let response: ProcedureGetResponse<OptimizationRecord> =
+            client.get_procedure(proc).await.json().await.unwrap();
+        ids.extend(response.final_molecules());
+    }
 
     // now you have ANOTHER level of indirection: take the final_molecule ids
     // from this last get_procedure call and query for them
 
-    let proc = MoleculeGetBody::new(ids);
-    let response: MoleculeGetResponse =
-        client.get_molecule(proc).await.json().await.unwrap();
+    println!("asking for {} molecules", ids.len());
 
-    dbg!(response);
+    let mut molecules = Vec::with_capacity(ids.len());
+    for chunk in ids.chunks(info.query_limit) {
+        let proc = MoleculeGetBody::new(chunk.to_vec());
+        let response: MoleculeGetResponse =
+            client.get_molecule(&proc).await.json().await.unwrap();
+        molecules.extend(response.data);
+    }
+
+    println!("received {} molecules", molecules.len());
 }
