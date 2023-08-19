@@ -14,18 +14,6 @@ use crate::{
     },
 };
 
-#[derive(Deserialize)]
-pub struct Information {
-    pub query_limit: usize,
-}
-
-#[derive(Clone)]
-pub struct FractalClient {
-    address: &'static str,
-    headers: HeaderMap,
-    client: Client,
-}
-
 #[derive(Debug)]
 struct ClientError;
 
@@ -48,6 +36,24 @@ where
     fn to_json(&self) -> Result<std::string::String, serde_json::Error> {
         serde_json::to_string(&self)
     }
+}
+
+#[derive(Deserialize)]
+pub struct Information {
+    pub query_limit: usize,
+}
+
+impl Default for FractalClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone)]
+pub struct FractalClient {
+    address: &'static str,
+    headers: HeaderMap,
+    client: Client,
 }
 
 impl FractalClient {
@@ -168,8 +174,8 @@ impl FractalClient {
             ids.extend(response.into_final_molecules());
         }
 
-        // now you have ANOTHER level of indirection: take the final_molecule ids
-        // from this last get_procedure call and query for them
+        // now you have ANOTHER level of indirection: take the final_molecule
+        // ids from this last get_procedure call and query for them
 
         eprintln!("asking for {} molecules", ids.len());
 
@@ -197,11 +203,5 @@ impl FractalClient {
         );
 
         make_results(results, records, molecule_ids, molecules)
-    }
-}
-
-impl Default for FractalClient {
-    fn default() -> Self {
-        Self::new()
     }
 }
