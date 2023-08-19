@@ -121,6 +121,10 @@ impl ProcedureGetResponse<TorsionDriveRecord> {
 }
 
 impl ProcedureGetResponse<OptimizationRecord> {
+    pub fn into_final_molecules(self) -> Vec<String> {
+        self.data.into_iter().map(|r| r.final_molecule).collect()
+    }
+
     pub fn final_molecules(&self) -> Vec<String> {
         self.data.iter().map(|r| r.final_molecule.clone()).collect()
     }

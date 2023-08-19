@@ -165,7 +165,7 @@ impl FractalClient {
                     opt_record.final_molecule.clone(),
                 );
             }
-            ids.extend(response.final_molecules());
+            ids.extend(response.into_final_molecules());
         }
 
         // now you have ANOTHER level of indirection: take the final_molecule ids
