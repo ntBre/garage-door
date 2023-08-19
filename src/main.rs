@@ -18,6 +18,7 @@
 
 use garage_door::make_results;
 use std::collections::HashMap;
+use tokio::task::JoinSet;
 
 use garage_door::{
     client::FractalClient,
@@ -31,6 +32,7 @@ use garage_door::{
 
 #[tokio::main]
 async fn main() {
+    let start = std::time::Instant::now();
     let col = CollectionGetBody::new(
         "torsiondrivedataset",
         "OpenFF multiplicity correction torsion drive data v1.1",
@@ -69,14 +71,19 @@ async fn main() {
         }
     }
 
-    // this is a map of (record_id, grid_id) -> opt_record_id
-    let mut molecule_ids = HashMap::new();
-
-    let mut ids = Vec::with_capacity(optimization_ids.len());
+    let mut set = JoinSet::new();
     for chunk in optimization_ids.chunks(info.query_limit) {
         let proc = ProcedureGetBody::new(chunk.to_vec());
+        let c = client.clone();
+        set.spawn(async move { c.get_procedure(proc).await });
+    }
+
+    // this is a map of (record_id, grid_id) -> opt_record_id
+    let mut molecule_ids = HashMap::new();
+    let mut ids = Vec::with_capacity(optimization_ids.len());
+    while let Some(response) = set.join_next().await {
         let response: ProcedureGetResponse<OptimizationRecord> =
-            client.get_procedure(proc).await.json().await.unwrap();
+            response.unwrap().json().await.unwrap();
         for opt_record in &response.data {
             molecule_ids.insert(
                 intermediate_ids[&opt_record.id].clone(),
@@ -91,17 +98,28 @@ async fn main() {
 
     eprintln!("asking for {} molecules", ids.len());
 
-    let mut molecules = HashMap::with_capacity(ids.len());
+    let mut set = JoinSet::new();
     for chunk in ids.chunks(info.query_limit) {
         let proc = MoleculeGetBody::new(chunk.to_vec());
+        let c = client.clone();
+        set.spawn(async move { c.get_molecule(proc).await });
+    }
+
+    let mut molecules = HashMap::with_capacity(ids.len());
+    while let Some(response) = set.join_next().await {
         let response: MoleculeGetResponse =
-            client.get_molecule(&proc).await.json().await.unwrap();
+            response.unwrap().json().await.unwrap();
         for molecule in response.data {
             molecules.insert(molecule.id.clone(), molecule);
         }
     }
 
     eprintln!("received {} molecules", molecules.len());
+
+    eprintln!(
+        "execution time: {:.1} s",
+        start.elapsed().as_millis() as f64 / 1000.0
+    );
 
     make_results(results, records, molecule_ids, molecules);
 }

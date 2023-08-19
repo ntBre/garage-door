@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fs::read_to_string};
 
+use tokio::task::JoinSet;
+
 use crate::{
-    client::FractalClient,
+    client::{FractalClient, Information},
     collection::CollectionGetResponse,
     make_results,
     molecule::{MoleculeGetBody, MoleculeGetResponse},
@@ -79,15 +81,21 @@ async fn full() {
     }
 
     let client = FractalClient::new();
+    let info = Information { query_limit: 400 };
+
+    let mut set = JoinSet::new();
+    for chunk in optimization_ids.chunks(info.query_limit) {
+        let proc = ProcedureGetBody::new(chunk.to_vec());
+        let c = client.clone();
+        set.spawn(async move { c.get_procedure(proc).await });
+    }
 
     // this is a map of (record_id, grid_id) -> opt_record_id
     let mut molecule_ids = HashMap::new();
-
     let mut ids = Vec::with_capacity(optimization_ids.len());
-    for chunk in optimization_ids.chunks(400) {
-        let proc = ProcedureGetBody::new(chunk.to_vec());
+    while let Some(response) = set.join_next().await {
         let response: ProcedureGetResponse<OptimizationRecord> =
-            client.get_procedure(proc).await.json().await.unwrap();
+            response.unwrap().json().await.unwrap();
         for opt_record in &response.data {
             molecule_ids.insert(
                 intermediate_ids[&opt_record.id].clone(),
@@ -102,11 +110,17 @@ async fn full() {
 
     eprintln!("asking for {} molecules", ids.len());
 
-    let mut molecules = HashMap::with_capacity(ids.len());
-    for chunk in ids.chunks(400) {
+    let mut set = JoinSet::new();
+    for chunk in ids.chunks(info.query_limit) {
         let proc = MoleculeGetBody::new(chunk.to_vec());
+        let c = client.clone();
+        set.spawn(async move { c.get_molecule(proc).await });
+    }
+
+    let mut molecules = HashMap::with_capacity(ids.len());
+    while let Some(response) = set.join_next().await {
         let response: MoleculeGetResponse =
-            client.get_molecule(&proc).await.json().await.unwrap();
+            response.unwrap().json().await.unwrap();
         for molecule in response.data {
             molecules.insert(molecule.id.clone(), molecule);
         }

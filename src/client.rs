@@ -13,6 +13,7 @@ pub struct Information {
     pub query_limit: usize,
 }
 
+#[derive(Clone)]
 pub struct FractalClient {
     address: &'static str,
     headers: HeaderMap,
@@ -90,7 +91,7 @@ impl FractalClient {
 
     pub async fn get_molecule(
         &self,
-        collection: &MoleculeGetBody,
+        collection: MoleculeGetBody,
     ) -> reqwest::Response {
         let url = format!("{}molecule", self.address);
         self.client
