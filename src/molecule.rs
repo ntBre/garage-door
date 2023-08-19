@@ -31,10 +31,6 @@ impl MoleculeGetBody {
             },
         }
     }
-
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(&self)
-    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
