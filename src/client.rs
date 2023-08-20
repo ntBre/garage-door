@@ -162,25 +162,15 @@ impl FractalClient {
             self.get_collection(collection_request),
         };
 
-        let records: Vec<ProcedureGetResponse<TorsionDriveRecord>> = self
+        let records: Vec<TorsionDriveRecord> = self
             .get_chunked(Self::get_procedure, &collection.ids(), query_limit)
-            .await;
-        let records: Vec<TorsionDriveRecord> = records
+            .await
             .into_iter()
-            .flat_map(|r| r.data)
+            .flat_map(|r: ProcedureGetResponse<TorsionDriveRecord>| r.data)
             .filter(|r| r.status.is_complete())
             .collect();
 
         eprintln!("{} torsion drive records", records.len());
-
-        let optimization_ids: Vec<_> = records
-            .iter()
-            .flat_map(|r| {
-                r.minimum_positions.iter().map(|(grid_id, minimum_idx)| {
-                    r.optimization_history[grid_id][*minimum_idx].clone()
-                })
-            })
-            .collect();
 
         // this is a map of optimization_id -> (record_id, grid_id)
         let mut intermediate_ids = HashMap::new();
@@ -192,7 +182,11 @@ impl FractalClient {
                 );
             }
         }
+        let optimization_ids: Vec<String> =
+            intermediate_ids.keys().cloned().collect();
 
+        // get the optimization records corresponding to each position in the
+        // TorsionDrive
         let responses: Vec<ProcedureGetResponse<OptimizationRecord>> = self
             .get_chunked(Self::get_procedure, &optimization_ids, query_limit)
             .await;
@@ -210,11 +204,9 @@ impl FractalClient {
             ids.extend(response.into_final_molecules());
         }
 
-        // now you have ANOTHER level of indirection: take the final_molecule
-        // ids from this last get_procedure call and query for them
-
         eprintln!("asking for {} molecules", ids.len());
 
+        // get the final molecules from each optimization trajectory
         let responses: Vec<MoleculeGetResponse> = self
             .get_chunked(Self::get_molecule, &ids, query_limit)
             .await;
