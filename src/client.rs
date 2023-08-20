@@ -116,8 +116,11 @@ impl FractalClient {
         self.get("procedure", body).await.json().await.unwrap()
     }
 
-    pub async fn get_molecule(&self, body: MoleculeGetBody) -> Response {
-        self.get("molecule", body).await
+    pub async fn get_molecule(
+        &self,
+        body: MoleculeGetBody,
+    ) -> MoleculeGetResponse {
+        self.get("molecule", body).await.json().await.unwrap()
     }
 
     async fn get_query_limit(&self) -> usize {
@@ -191,7 +194,6 @@ impl FractalClient {
 
         let mut molecules = HashMap::with_capacity(ids.len());
         for response in responses {
-            let response: MoleculeGetResponse = response.json().await.unwrap();
             for molecule in response.data {
                 molecules.insert(molecule.id.clone(), molecule);
             }
