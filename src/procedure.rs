@@ -6,7 +6,7 @@ use std::{collections::HashMap, fmt::Debug};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::Status;
+use crate::{client::Body, Status};
 
 #[derive(Default, Serialize)]
 struct QueryFilter {
@@ -32,8 +32,8 @@ pub struct ProcedureGetBody {
     data: Data,
 }
 
-impl ProcedureGetBody {
-    pub fn new(id: Vec<String>) -> Self {
+impl Body for ProcedureGetBody {
+    fn new(id: Vec<String>) -> Self {
         Self {
             meta: QueryFilter::default(),
             data: Data {

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error, fmt::Display};
 
-use futures::future::join_all;
+use futures::{future::join_all, Future};
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +47,10 @@ impl Default for FractalClient {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub trait Body {
+    fn new(ids: Vec<String>) -> Self;
 }
 
 #[derive(Clone)]
@@ -127,6 +131,25 @@ impl FractalClient {
         self.get_information().await.unwrap().query_limit
     }
 
+    async fn get_chunked<'a, B, R, F, Q>(
+        &'a self,
+        method: Q,
+        ids: &[String],
+        chunk_size: usize,
+    ) -> Vec<R>
+    where
+        B: Body,
+        F: Future<Output = R>,
+        Q: Fn(&'a FractalClient, B) -> F,
+    {
+        let mut futures = Vec::new();
+        for chunk in ids.chunks(chunk_size) {
+            let proc = B::new(chunk.to_vec());
+            futures.push(method(self, proc));
+        }
+        join_all(futures).await
+    }
+
     pub async fn retrieve_dataset(
         &self,
         collection_request: CollectionGetBody,
@@ -140,6 +163,9 @@ impl FractalClient {
 
         let proc = ProcedureGetBody::new(collection.ids());
 
+        // TODO this should probably be chunked as well. I'm pretty sure the
+        // only field we need on records is data, which is just a
+        // Vec<TorsionDriveRecord>, so joining them should be easy enough
         let mut records: ProcedureGetResponse<TorsionDriveRecord> =
             self.get_procedure(proc).await;
         // only keep the complete records
@@ -160,12 +186,9 @@ impl FractalClient {
             }
         }
 
-        let mut futures = Vec::new();
-        for chunk in optimization_ids.chunks(query_limit) {
-            let proc = ProcedureGetBody::new(chunk.to_vec());
-            futures.push(self.get_procedure::<OptimizationRecord>(proc));
-        }
-        let responses = join_all(futures).await;
+        let responses: Vec<ProcedureGetResponse<OptimizationRecord>> = self
+            .get_chunked(Self::get_procedure, &optimization_ids, query_limit)
+            .await;
 
         // this is a map of (record_id, grid_id) -> opt_record_id
         let mut molecule_ids = HashMap::new();
@@ -185,12 +208,9 @@ impl FractalClient {
 
         eprintln!("asking for {} molecules", ids.len());
 
-        let mut futures = Vec::new();
-        for chunk in ids.chunks(query_limit) {
-            let proc = MoleculeGetBody::new(chunk.to_vec());
-            futures.push(self.get_molecule(proc));
-        }
-        let responses = join_all(futures).await;
+        let responses: Vec<MoleculeGetResponse> = self
+            .get_chunked(Self::get_molecule, &ids, query_limit)
+            .await;
 
         let mut molecules = HashMap::with_capacity(ids.len());
         for response in responses {

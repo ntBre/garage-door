@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::client::Body;
+
 #[derive(Default, Serialize)]
 struct QueryFilter {
     limit: Option<usize>,
@@ -20,8 +22,8 @@ pub struct MoleculeGetBody {
     data: Data,
 }
 
-impl MoleculeGetBody {
-    pub fn new(id: Vec<String>) -> Self {
+impl Body for MoleculeGetBody {
+    fn new(id: Vec<String>) -> Self {
         Self {
             meta: QueryFilter::default(),
             data: Data {
