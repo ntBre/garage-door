@@ -109,8 +109,11 @@ impl FractalClient {
         self.get("collection", body).await.json().await.unwrap()
     }
 
-    pub async fn get_procedure(&self, body: ProcedureGetBody) -> Response {
-        self.get("procedure", body).await
+    pub async fn get_procedure<T: for<'a> Deserialize<'a>>(
+        &self,
+        body: ProcedureGetBody,
+    ) -> ProcedureGetResponse<T> {
+        self.get("procedure", body).await.json().await.unwrap()
     }
 
     pub async fn get_molecule(&self, body: MoleculeGetBody) -> Response {
@@ -135,7 +138,7 @@ impl FractalClient {
         let proc = ProcedureGetBody::new(collection.ids());
 
         let mut records: ProcedureGetResponse<TorsionDriveRecord> =
-            self.get_procedure(proc).await.json().await.unwrap();
+            self.get_procedure(proc).await;
         // only keep the complete records
         records.data.retain(|r| r.status.is_complete());
 
@@ -157,17 +160,14 @@ impl FractalClient {
         let mut futures = Vec::new();
         for chunk in optimization_ids.chunks(query_limit) {
             let proc = ProcedureGetBody::new(chunk.to_vec());
-            futures.push(self.get_procedure(proc));
+            futures.push(self.get_procedure::<OptimizationRecord>(proc));
         }
-
         let responses = join_all(futures).await;
 
         // this is a map of (record_id, grid_id) -> opt_record_id
         let mut molecule_ids = HashMap::new();
         let mut ids = Vec::with_capacity(optimization_ids.len());
         for response in responses {
-            let response: ProcedureGetResponse<OptimizationRecord> =
-                response.json().await.unwrap();
             for opt_record in &response.data {
                 molecule_ids.insert(
                     intermediate_ids[&opt_record.id].clone(),
