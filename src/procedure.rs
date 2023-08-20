@@ -93,6 +93,22 @@ pub struct TorsionDriveRecord {
     pub optimization_history: HashMap<String, Vec<String>>,
 }
 
+impl TorsionDriveRecord {
+    /// return an iterator over the optimization_id -> (record_id, grid_id)
+    /// pairs in self.optimization_history. the keys are the ids of the
+    /// OptimizationRecords associated with each point along the torsion drive
+    pub(crate) fn optimizations(
+        &self,
+    ) -> impl Iterator<Item = (String, (String, String))> + '_ {
+        self.minimum_positions.iter().map(|(grid_id, m)| {
+            (
+                self.optimization_history[grid_id][*m].clone(),
+                (self.id.clone(), grid_id.clone()),
+            )
+        })
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct OptimizationRecord {
     pub id: String,
@@ -101,12 +117,22 @@ pub struct OptimizationRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ProcedureGetResponse<T> {
+pub struct Response<T> {
     pub meta: Value,
     pub data: Vec<T>,
 }
 
-impl ProcedureGetResponse<TorsionDriveRecord> {
+impl<T> IntoIterator for Response<T> {
+    type Item = T;
+
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
+    }
+}
+
+impl Response<TorsionDriveRecord> {
     pub fn optimization_ids(&self) -> Vec<String> {
         let mut ret = Vec::new();
         for record in &self.data {
@@ -120,7 +146,7 @@ impl ProcedureGetResponse<TorsionDriveRecord> {
     }
 }
 
-impl ProcedureGetResponse<OptimizationRecord> {
+impl Response<OptimizationRecord> {
     pub fn into_final_molecules(self) -> Vec<String> {
         self.data.into_iter().map(|r| r.final_molecule).collect()
     }
@@ -139,7 +165,7 @@ mod tests {
     #[test]
     fn check_opt_ids() {
         let s = read_to_string("testfiles/procedure.json").unwrap();
-        let mut c: ProcedureGetResponse<TorsionDriveRecord> =
+        let mut c: Response<TorsionDriveRecord> =
             serde_json::from_str(&s).unwrap();
         c.data.retain(|f| f.status.is_complete());
         let mut got_ids = c.optimization_ids();

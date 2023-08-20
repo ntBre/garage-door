@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use crate::{
     client::FractalClient,
     collection::{CollectionGetBody, CollectionGetResponse, CollectionType},
-    procedure::{OptimizationRecord, ProcedureGetResponse, TorsionDriveRecord},
+    procedure::{OptimizationRecord, Response, TorsionDriveRecord},
 };
 
 #[test]
@@ -16,16 +16,14 @@ fn de_response() {
 #[test]
 fn de_procedure() {
     let s = read_to_string("testfiles/procedure.json").unwrap();
-    let c: ProcedureGetResponse<TorsionDriveRecord> =
-        serde_json::from_str(&s).unwrap();
+    let c: Response<TorsionDriveRecord> = serde_json::from_str(&s).unwrap();
     dbg!(c);
 }
 
 #[test]
 fn de_opt_procedure() {
     let s = read_to_string("testfiles/opt_procedure.json").unwrap();
-    let c: ProcedureGetResponse<OptimizationRecord> =
-        serde_json::from_str(&s).unwrap();
+    let c: Response<OptimizationRecord> = serde_json::from_str(&s).unwrap();
     dbg!(c);
 }
 

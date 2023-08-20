@@ -1,16 +1,15 @@
 use std::{collections::HashMap, error::Error, fmt::Display};
 
 use futures::{future::join_all, Future};
-use reqwest::{header::HeaderMap, Client, Response};
+use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     collection::{CollectionGetBody, CollectionGetResponse},
     make_results,
-    molecule::{MoleculeGetBody, MoleculeGetResponse},
+    molecule::{Molecule, MoleculeGetBody},
     procedure::{
-        OptimizationRecord, ProcedureGetBody, ProcedureGetResponse,
-        TorsionDriveRecord,
+        OptimizationRecord, ProcedureGetBody, Response, TorsionDriveRecord,
     },
 };
 
@@ -90,7 +89,11 @@ impl FractalClient {
         Ok(info)
     }
 
-    async fn get(&self, endpoint: &str, body: impl ToJson) -> Response {
+    async fn get(
+        &self,
+        endpoint: &str,
+        body: impl ToJson,
+    ) -> reqwest::Response {
         let url = format!("{}{endpoint}", self.address);
         let ret = self
             .client
@@ -116,14 +119,14 @@ impl FractalClient {
     pub async fn get_procedure<T: for<'a> Deserialize<'a>>(
         &self,
         body: ProcedureGetBody,
-    ) -> ProcedureGetResponse<T> {
+    ) -> Response<T> {
         self.get("procedure", body).await.json().await.unwrap()
     }
 
     pub async fn get_molecule(
         &self,
         body: MoleculeGetBody,
-    ) -> MoleculeGetResponse {
+    ) -> Response<Molecule> {
         self.get("molecule", body).await.json().await.unwrap()
     }
 
@@ -156,67 +159,64 @@ impl FractalClient {
     ) -> Vec<(String, String, Vec<Vec<f64>>)> {
         let start = std::time::Instant::now();
 
-        // get the query_limit and the initial collection
+        // get the query_limit and the initial collection, containing all of the
+        // desired TorsionDriveRecord ids
         let (query_limit, collection) = tokio::join! {
             self.get_query_limit(),
             self.get_collection(collection_request),
         };
 
+        // request the TorsionDriveRecords corresponding to the ids in the
+        // collection
         let records: Vec<TorsionDriveRecord> = self
             .get_chunked(Self::get_procedure, &collection.ids(), query_limit)
             .await
             .into_iter()
-            .flat_map(|r: ProcedureGetResponse<TorsionDriveRecord>| r.data)
-            .filter(|r| r.status.is_complete())
+            .flatten()
+            .filter(|r: &TorsionDriveRecord| r.status.is_complete())
             .collect();
 
         eprintln!("{} torsion drive records", records.len());
 
         // this is a map of optimization_id -> (record_id, grid_id)
-        let mut intermediate_ids = HashMap::new();
-        for record in &records {
-            for (grid_id, m) in &record.minimum_positions {
-                intermediate_ids.insert(
-                    record.optimization_history[grid_id][*m].clone(),
-                    (record.id.clone(), grid_id.clone()),
-                );
-            }
-        }
+        let mut intermediate_ids: HashMap<_, _> = records
+            .iter()
+            .flat_map(TorsionDriveRecord::optimizations)
+            .collect();
         let optimization_ids: Vec<String> =
             intermediate_ids.keys().cloned().collect();
 
         // get the optimization records corresponding to each position in the
         // TorsionDrive
-        let responses: Vec<ProcedureGetResponse<OptimizationRecord>> = self
+        let responses: Vec<OptimizationRecord> = self
             .get_chunked(Self::get_procedure, &optimization_ids, query_limit)
-            .await;
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
 
         // this is a map of (record_id, grid_id) -> opt_record_id
-        let mut molecule_ids = HashMap::new();
-        let mut ids = Vec::with_capacity(optimization_ids.len());
-        for response in responses {
-            for opt_record in &response.data {
-                molecule_ids.insert(
-                    intermediate_ids[&opt_record.id].clone(),
-                    opt_record.final_molecule.clone(),
-                );
-            }
-            ids.extend(response.into_final_molecules());
+        let mut molecule_ids = HashMap::with_capacity(optimization_ids.len());
+        for opt_record in responses {
+            molecule_ids.insert(
+                intermediate_ids
+                    .remove(&opt_record.id)
+                    .expect("duplicate opt id?"),
+                opt_record.final_molecule,
+            );
         }
+        let ids: Vec<_> = molecule_ids.values().cloned().collect();
 
         eprintln!("asking for {} molecules", ids.len());
 
         // get the final molecules from each optimization trajectory
-        let responses: Vec<MoleculeGetResponse> = self
+        let molecules: HashMap<_, _> = self
             .get_chunked(Self::get_molecule, &ids, query_limit)
-            .await;
-
-        let mut molecules = HashMap::with_capacity(ids.len());
-        for response in responses {
-            for molecule in response.data {
-                molecules.insert(molecule.id.clone(), molecule);
-            }
-        }
+            .await
+            .into_iter()
+            .flatten()
+            .map(|mol| (mol.id.clone(), mol))
+            .collect();
 
         eprintln!("received {} molecules", molecules.len());
 

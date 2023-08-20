@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
 use crate::client::Body;
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize)]
 struct QueryFilter {
@@ -63,22 +61,18 @@ pub struct Molecule {
     pub id: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct MoleculeGetResponse {
-    pub meta: Value,
-    pub data: Vec<Molecule>,
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
+
+    use crate::procedure::Response;
 
     use super::*;
 
     #[test]
     fn de_molecule() {
         let s = read_to_string("testfiles/molecules.json").unwrap();
-        let c: MoleculeGetResponse = serde_json::from_str(&s).unwrap();
+        let c: Response<Molecule> = serde_json::from_str(&s).unwrap();
         dbg!(c);
     }
 }
