@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use collection::TorsionDriveResult;
 use molecule::Molecule;
-use procedure::{ProcedureGetResponse, TorsionDriveRecord};
+use procedure::TorsionDriveRecord;
 use serde::{Deserialize, Serialize};
 
 pub mod client;
@@ -38,7 +38,7 @@ impl Status {
 /// how to reconstruct its output
 pub fn make_results(
     results: Vec<TorsionDriveResult>,
-    records: ProcedureGetResponse<TorsionDriveRecord>,
+    records: Vec<TorsionDriveRecord>,
     molecule_ids: HashMap<(String, String), String>,
     molecules: HashMap<String, Molecule>,
 ) -> Vec<(String, String, Vec<Vec<f64>>)> {
@@ -50,7 +50,7 @@ pub fn make_results(
         .collect();
 
     let mut ret = Vec::new();
-    for record in &records.data {
+    for record in &records {
         let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
         grid_ids.sort_by_key(|g| {
             let x: &[_] = &['[', ']'];

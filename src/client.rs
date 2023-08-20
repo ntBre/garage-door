@@ -156,28 +156,35 @@ impl FractalClient {
     ) -> Vec<(String, String, Vec<Vec<f64>>)> {
         let start = std::time::Instant::now();
 
+        // get the query_limit and the initial collection
         let (query_limit, collection) = tokio::join! {
             self.get_query_limit(),
             self.get_collection(collection_request),
         };
 
-        let proc = ProcedureGetBody::new(collection.ids());
+        let records: Vec<ProcedureGetResponse<TorsionDriveRecord>> = self
+            .get_chunked(Self::get_procedure, &collection.ids(), query_limit)
+            .await;
+        let records: Vec<TorsionDriveRecord> = records
+            .into_iter()
+            .flat_map(|r| r.data)
+            .filter(|r| r.status.is_complete())
+            .collect();
 
-        // TODO this should probably be chunked as well. I'm pretty sure the
-        // only field we need on records is data, which is just a
-        // Vec<TorsionDriveRecord>, so joining them should be easy enough
-        let mut records: ProcedureGetResponse<TorsionDriveRecord> =
-            self.get_procedure(proc).await;
-        // only keep the complete records
-        records.data.retain(|r| r.status.is_complete());
+        eprintln!("{} torsion drive records", records.len());
 
-        eprintln!("{} torsion drive records", records.data.len());
-
-        let optimization_ids = records.optimization_ids();
+        let optimization_ids: Vec<_> = records
+            .iter()
+            .flat_map(|r| {
+                r.minimum_positions.iter().map(|(grid_id, minimum_idx)| {
+                    r.optimization_history[grid_id][*minimum_idx].clone()
+                })
+            })
+            .collect();
 
         // this is a map of optimization_id -> (record_id, grid_id)
         let mut intermediate_ids = HashMap::new();
-        for record in &records.data {
+        for record in &records {
             for (grid_id, m) in &record.minimum_positions {
                 intermediate_ids.insert(
                     record.optimization_history[grid_id][*m].clone(),
