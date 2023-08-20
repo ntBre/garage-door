@@ -16,12 +16,15 @@
 //! the very last line. The best we can do is return the building blocks of
 //! Molecules and their conformers, as the docs for [make_results] describe.
 
-use garage_door::{client::FractalClient, collection::CollectionGetBody};
+use garage_door::{
+    client::FractalClient,
+    collection::{CollectionGetBody, CollectionType},
+};
 
 #[tokio::main]
 async fn main() {
     let col = CollectionGetBody::new(
-        "torsiondrivedataset",
+        CollectionType::TorsionDrive,
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
     let client = FractalClient::new();

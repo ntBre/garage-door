@@ -21,15 +21,31 @@ pub struct CollectionGetBody {
     data: Data,
 }
 
+pub enum CollectionType {
+    TorsionDrive,
+}
+
+impl From<CollectionType> for String {
+    fn from(value: CollectionType) -> Self {
+        match value {
+            CollectionType::TorsionDrive => String::from("torsiondrivedataset"),
+        }
+    }
+}
+
 impl CollectionGetBody {
-    pub fn new(collection: impl Into<String>, name: impl Into<String>) -> Self {
+    /// Construct a new [CollectionGetBody] with `collection_type` and `name`.
+    pub fn new(
+        collection_type: CollectionType,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             meta: QueryFilter {
                 include: None,
                 exclude: None,
             },
             data: Data {
-                collection: collection.into(),
+                collection: collection_type.into(),
                 name: name.into(),
             },
         }

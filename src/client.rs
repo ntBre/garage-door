@@ -1,8 +1,8 @@
 use std::{collections::HashMap, error::Error, fmt::Display};
 
+use futures::future::join_all;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::{Deserialize, Serialize};
-use tokio::task::JoinSet;
 
 use crate::{
     collection::{CollectionGetBody, CollectionGetResponse},
@@ -102,8 +102,11 @@ impl FractalClient {
         ret
     }
 
-    pub async fn get_collection(&self, body: CollectionGetBody) -> Response {
-        self.get("collection", body).await
+    pub async fn get_collection(
+        &self,
+        body: CollectionGetBody,
+    ) -> CollectionGetResponse {
+        self.get("collection", body).await.json().await.unwrap()
     }
 
     pub async fn get_procedure(&self, body: ProcedureGetBody) -> Response {
@@ -114,23 +117,22 @@ impl FractalClient {
         self.get("molecule", body).await
     }
 
+    async fn get_query_limit(&self) -> usize {
+        self.get_information().await.unwrap().query_limit
+    }
+
     pub async fn retrieve_dataset(
         &self,
-        col: CollectionGetBody,
+        collection_request: CollectionGetBody,
     ) -> Vec<(String, String, Vec<Vec<f64>>)> {
         let start = std::time::Instant::now();
-        let info = self.get_information().await.unwrap();
-        eprintln!("query_limit = {}", info.query_limit);
-        let response: CollectionGetResponse =
-            self.get_collection(col).await.json().await.unwrap();
 
-        let proc = ProcedureGetBody::new(response.ids());
+        let (query_limit, collection) = tokio::join! {
+            self.get_query_limit(),
+            self.get_collection(collection_request),
+        };
 
-        let results: Vec<_> = response
-            .data
-            .into_iter()
-            .flat_map(|ds| ds.records.into_values())
-            .collect();
+        let proc = ProcedureGetBody::new(collection.ids());
 
         let mut records: ProcedureGetResponse<TorsionDriveRecord> =
             self.get_procedure(proc).await.json().await.unwrap();
@@ -152,19 +154,20 @@ impl FractalClient {
             }
         }
 
-        let mut set = JoinSet::new();
-        for chunk in optimization_ids.chunks(info.query_limit) {
+        let mut futures = Vec::new();
+        for chunk in optimization_ids.chunks(query_limit) {
             let proc = ProcedureGetBody::new(chunk.to_vec());
-            let c = self.clone();
-            set.spawn(async move { c.get_procedure(proc).await });
+            futures.push(self.get_procedure(proc));
         }
+
+        let responses = join_all(futures).await;
 
         // this is a map of (record_id, grid_id) -> opt_record_id
         let mut molecule_ids = HashMap::new();
         let mut ids = Vec::with_capacity(optimization_ids.len());
-        while let Some(response) = set.join_next().await {
+        for response in responses {
             let response: ProcedureGetResponse<OptimizationRecord> =
-                response.unwrap().json().await.unwrap();
+                response.json().await.unwrap();
             for opt_record in &response.data {
                 molecule_ids.insert(
                     intermediate_ids[&opt_record.id].clone(),
@@ -179,17 +182,16 @@ impl FractalClient {
 
         eprintln!("asking for {} molecules", ids.len());
 
-        let mut set = JoinSet::new();
-        for chunk in ids.chunks(info.query_limit) {
+        let mut futures = Vec::new();
+        for chunk in ids.chunks(query_limit) {
             let proc = MoleculeGetBody::new(chunk.to_vec());
-            let c = self.clone();
-            set.spawn(async move { c.get_molecule(proc).await });
+            futures.push(self.get_molecule(proc));
         }
+        let responses = join_all(futures).await;
 
         let mut molecules = HashMap::with_capacity(ids.len());
-        while let Some(response) = set.join_next().await {
-            let response: MoleculeGetResponse =
-                response.unwrap().json().await.unwrap();
+        for response in responses {
+            let response: MoleculeGetResponse = response.json().await.unwrap();
             for molecule in response.data {
                 molecules.insert(molecule.id.clone(), molecule);
             }
@@ -201,6 +203,12 @@ impl FractalClient {
             "execution time: {:.1} s",
             start.elapsed().as_millis() as f64 / 1000.0
         );
+
+        let results: Vec<_> = collection
+            .data
+            .into_iter()
+            .flat_map(|ds| ds.records.into_values())
+            .collect();
 
         make_results(results, records, molecule_ids, molecules)
     }

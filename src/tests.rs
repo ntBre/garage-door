@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 
 use crate::{
     client::FractalClient,
-    collection::{CollectionGetBody, CollectionGetResponse},
+    collection::{CollectionGetBody, CollectionGetResponse, CollectionType},
     procedure::{OptimizationRecord, ProcedureGetResponse, TorsionDriveRecord},
 };
 
@@ -49,7 +49,7 @@ async fn full() {
 
     let client = FractalClient::new();
     let col = CollectionGetBody::new(
-        "torsiondrivedataset",
+        CollectionType::TorsionDrive,
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
 
