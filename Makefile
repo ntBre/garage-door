@@ -14,6 +14,6 @@ run:
 	cargo run -- $(ARGS)
 
 convert:
-	cargo run -- convert						\
-	    ../../projects/benchmarking/datasets/filtered-industry.json	\
+	cargo run -- convert		\
+	    testfiles/core-opt.json	\
 	    --dataset-type Optimization
