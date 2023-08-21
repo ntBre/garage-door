@@ -41,7 +41,7 @@ pub fn make_td_results(
     records: Vec<TorsionDriveRecord>,
     molecule_ids: HashMap<(String, String), String>,
     molecules: HashMap<String, Molecule>,
-) -> Vec<(String, String, Vec<Vec<f64>>)> {
+) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
     // there may be more results than records, but accessing them with this map
     // by the id stored on the records ensures that I only get the ones I want
     let cmiles_map: HashMap<_, _> = results
@@ -65,7 +65,7 @@ pub fn make_td_results(
 
         let cmiles = cmiles_map[&record.id].clone();
         ret.push((
-            record.id,
+            record,
             cmiles,
             qc_grid_molecules.into_iter().map(|m| m.geometry).collect(),
         ));

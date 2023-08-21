@@ -48,20 +48,62 @@ impl Body for ProcedureGetBody {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OptimizationSpec {
     pub program: String,
     pub keywords: HashMap<String, Value>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct TorsionDriveRecord {
-    pub id: String,
-    pub initial_molecule: Vec<String>,
-    pub optimization_spec: OptimizationSpec,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TDKeywords {
+    dihedrals: Vec<(usize, usize, usize, usize)>,
+    grid_spacing: Vec<isize>,
+    dihedral_ranges: Option<Vec<(isize, isize)>>,
+    energy_decrease_thresh: Option<f64>,
+    energy_upper_limit: Option<f64>,
+    #[serde(default)]
+    additional_keywords: HashMap<String, Value>,
+}
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TorsionDriveRecord {
+    // base identification
+    pub id: String,
+    pub hash_index: Option<String>,
+    pub procedure: String,
+    pub program: String,
+    pub version: usize,
+    pub protocols: Option<HashMap<String, Value>>,
+    pub extras: HashMap<String, Value>,
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+    pub error: Option<String>,
+    pub manager_name: Option<String>,
+    pub status: Status,
+    pub modified_on: String,
+    pub created_on: String,
+    pub provenance: Option<Value>,
+    // input data
+    pub initial_molecule: Vec<String>,
+    pub keywords: TDKeywords,
+    pub optimization_spec: OptimizationSpec,
+    pub qc_spec: Value,
+    // output data
     #[serde(rename = "final_energy_dict")]
     pub final_energies: HashMap<String, f64>,
+
+    /// A map of grid points to additional ids
+    /// Example:
+    /// ```json
+    /// "optimization_history": {
+    ///   "[-120]": [
+    ///     "104321688",
+    ///     "104405676",
+    ///     "104405677"
+    ///   ]
+    /// }
+    /// ```
+    pub optimization_history: HashMap<String, Vec<String>>,
 
     /// a map of something?
     ///
@@ -76,21 +118,6 @@ pub struct TorsionDriveRecord {
     /// }
     /// ```
     pub minimum_positions: HashMap<String, usize>,
-
-    pub status: Status,
-
-    /// A map of grid points to additional ids
-    /// Example:
-    /// ```json
-    /// "optimization_history": {
-    ///   "[-120]": [
-    ///     "104321688",
-    ///     "104405676",
-    ///     "104405677"
-    ///   ]
-    /// }
-    /// ```
-    pub optimization_history: HashMap<String, Vec<String>>,
 }
 
 impl TorsionDriveRecord {

@@ -158,7 +158,7 @@ impl FractalClient {
         &self,
         collection_request: CollectionGetBody,
         dataset_type: CollectionType,
-    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    ) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
         let start = std::time::Instant::now();
 
         // get the query_limit and the initial collection, containing all of the
@@ -185,13 +185,14 @@ impl FractalClient {
         collection: CollectionGetResponse,
         query_limit: usize,
         dataset_type: CollectionType,
-    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    ) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
         match dataset_type {
             CollectionType::TorsionDrive => {
                 self.torsion_drive_records(collection, query_limit).await
             }
             CollectionType::Optimization => {
-                self.optimization_records(collection, query_limit).await
+                // self.optimization_records(collection, query_limit).await
+                todo!()
             }
         }
     }
@@ -246,7 +247,7 @@ impl FractalClient {
         &self,
         collection: CollectionGetResponse,
         query_limit: usize,
-    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    ) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
         // request the TorsionDriveRecords corresponding to the ids in the
         // collection
         let records: Vec<TorsionDriveRecord> = self

@@ -57,9 +57,11 @@ async fn full() {
         .retrieve_dataset(col, CollectionType::TorsionDrive)
         .await;
 
-    got.sort_by_key(|g| g.0.clone());
-    let got: Vec<_> =
-        got.into_iter().map(|(a, b, c)| (a, b, c.len())).collect();
+    got.sort_by_key(|g| g.0.id.clone());
+    let got: Vec<_> = got
+        .into_iter()
+        .map(|(a, b, c)| (a.id, b, c.len()))
+        .collect();
 
     assert_eq!(got, want);
 }
@@ -92,13 +94,13 @@ async fn full_opt() {
         .to_records(col, query_limit, CollectionType::Optimization)
         .await;
 
-    got.sort_by_key(|g| g.0.clone());
+    got.sort_by_key(|g| g.0.id.clone());
     // NOTE: unlike above, comparing the length of the geometry (in atoms)
     // rather than the length of the conformers vector because it should always
     // contain a single conformer
     let got: Vec<_> = got
         .into_iter()
-        .map(|(a, b, c)| (a, b, c[0].len() / 3))
+        .map(|(a, b, c)| (a.id, b, c[0].len() / 3))
         .collect();
 
     assert_eq!(got.len(), want.len());
