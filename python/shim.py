@@ -14,7 +14,7 @@ logging.getLogger("openff.toolkit").setLevel(logging.ERROR)
 with open("/tmp/td.json", "r") as infile:
     results = json.load(infile)
 
-for r in results[:10]:
+for r in results:
     [record, cmiles, conformers] = r
     molecule = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
     molecule.add_conformer(
