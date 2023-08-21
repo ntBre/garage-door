@@ -19,7 +19,3 @@ print("calling to_records")
 records_and_molecules = collection.to_records()
 
 print(f"received {len(records_and_molecules)} records and molecules")
-
-# for record, molecule in records_and_molecules:
-#     print(record)
-#     print(molecule)
