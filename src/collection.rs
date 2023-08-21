@@ -155,7 +155,7 @@ impl From<TorsionDriveResultCollection> for CollectionGetResponse {
                 id: String::new(),
                 collection: String::new(),
                 name: String::new(),
-                records: records,
+                records,
             }],
         }
     }
