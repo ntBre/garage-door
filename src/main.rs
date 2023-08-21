@@ -61,21 +61,18 @@ async fn main() {
     match args.command {
         Commands::Get { name, dataset_type } => {
             let col = CollectionGetBody::new(dataset_type, name);
-            client.retrieve_dataset(col).await;
+            client.retrieve_dataset(col, dataset_type).await;
         }
         Commands::Convert {
             filename,
             dataset_type,
         } => {
-            let ds = match dataset_type {
-                CollectionType::TorsionDrive => {
-                    TorsionDriveResultCollection::parse_file(filename).unwrap()
-                }
-                CollectionType::Optimization => todo!(),
-            };
+            // as I found out, you can always parse from file as a td collection
+            let ds =
+                TorsionDriveResultCollection::parse_file(filename).unwrap();
             let col: CollectionGetResponse = ds.into();
             let query_limit = client.get_query_limit().await;
-            client.to_records(col, query_limit).await;
+            client.to_records(col, query_limit, dataset_type).await;
         }
     }
 }

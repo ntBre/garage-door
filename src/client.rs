@@ -5,7 +5,7 @@ use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    collection::{CollectionGetBody, CollectionGetResponse},
+    collection::{CollectionGetBody, CollectionGetResponse, CollectionType},
     make_results,
     molecule::{Molecule, MoleculeGetBody},
     procedure::{
@@ -157,6 +157,7 @@ impl FractalClient {
     pub async fn retrieve_dataset(
         &self,
         collection_request: CollectionGetBody,
+        dataset_type: CollectionType,
     ) -> Vec<(String, String, Vec<Vec<f64>>)> {
         let start = std::time::Instant::now();
 
@@ -167,7 +168,7 @@ impl FractalClient {
             self.get_collection(collection_request),
         };
 
-        let ret = self.to_records(collection, query_limit).await;
+        let ret = self.to_records(collection, query_limit, dataset_type).await;
 
         eprintln!(
             "execution time: {:.1} s",
@@ -180,6 +181,41 @@ impl FractalClient {
     /// Convert the given collection to a sequence of records and molecules.
     /// Well, at least as close as we can get
     pub async fn to_records(
+        &self,
+        collection: CollectionGetResponse,
+        query_limit: usize,
+        dataset_type: CollectionType,
+    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
+        match dataset_type {
+            CollectionType::TorsionDrive => {
+                self.torsion_drive_records(collection, query_limit).await
+            }
+            CollectionType::Optimization => {
+                self.optimization_records(collection, query_limit).await
+            }
+        }
+    }
+
+    async fn optimization_records(
+        &self,
+        collection: CollectionGetResponse,
+        query_limit: usize,
+    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
+        // request the TorsionDriveRecords corresponding to the ids in the
+        // collection
+        let records: Vec<OptimizationRecord> = self
+            .get_chunked(Self::get_procedure, &collection.ids(), query_limit)
+            .await
+            .into_iter()
+            .flatten()
+            .filter(|r: &OptimizationRecord| r.status.is_complete())
+            .collect();
+
+        eprintln!("{} optimization records", records.len());
+        todo!();
+    }
+
+    async fn torsion_drive_records(
         &self,
         collection: CollectionGetResponse,
         query_limit: usize,
