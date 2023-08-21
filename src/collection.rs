@@ -43,6 +43,7 @@ impl FromStr for CollectionType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "TorsionDrive" => Ok(Self::TorsionDrive),
+            "Optimization" => Ok(Self::Optimization),
             e => Err(format!("unmatched CollectionType: `{e}`")),
         }
     }
