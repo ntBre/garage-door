@@ -130,7 +130,8 @@ impl FractalClient {
         self.get("molecule", body).await.json().await.unwrap()
     }
 
-    async fn get_query_limit(&self) -> usize {
+    /// Make an information request to the server to obtain the query limit
+    pub async fn get_query_limit(&self) -> usize {
         self.get_information().await.unwrap().query_limit
     }
 
@@ -166,6 +167,23 @@ impl FractalClient {
             self.get_collection(collection_request),
         };
 
+        let ret = self.to_records(collection, query_limit).await;
+
+        eprintln!(
+            "execution time: {:.1} s",
+            start.elapsed().as_millis() as f64 / 1000.0
+        );
+
+        ret
+    }
+
+    /// Convert the given collection to a sequence of records and molecules.
+    /// Well, at least as close as we can get
+    pub async fn to_records(
+        &self,
+        collection: CollectionGetResponse,
+        query_limit: usize,
+    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
         // request the TorsionDriveRecords corresponding to the ids in the
         // collection
         let records: Vec<TorsionDriveRecord> = self
@@ -219,11 +237,6 @@ impl FractalClient {
             .collect();
 
         eprintln!("received {} molecules", molecules.len());
-
-        eprintln!(
-            "execution time: {:.1} s",
-            start.elapsed().as_millis() as f64 / 1000.0
-        );
 
         let results: Vec<_> = collection
             .data

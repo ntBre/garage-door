@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
+use openff_toolkit::qcsubmit::results::TorsionDriveResultCollection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -21,14 +22,28 @@ pub struct CollectionGetBody {
     data: Data,
 }
 
+#[derive(Clone, Copy)]
 pub enum CollectionType {
     TorsionDrive,
+    Optimization,
 }
 
 impl From<CollectionType> for String {
     fn from(value: CollectionType) -> Self {
         match value {
             CollectionType::TorsionDrive => String::from("torsiondrivedataset"),
+            CollectionType::Optimization => String::from("optimization"),
+        }
+    }
+}
+
+impl FromStr for CollectionType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "TorsionDrive" => Ok(Self::TorsionDrive),
+            e => Err(format!("unmatched CollectionType: `{e}`")),
         }
     }
 }
@@ -114,5 +129,34 @@ impl CollectionGetResponse {
             .map(|rec| rec.record_id())
             .cloned()
             .collect()
+    }
+}
+
+impl From<TorsionDriveResultCollection> for CollectionGetResponse {
+    fn from(value: TorsionDriveResultCollection) -> Self {
+        let mut records = HashMap::with_capacity(value.entries.len());
+        for entries in value.entries.into_values() {
+            for v in entries {
+                records.insert(
+                    v.record_id.clone(),
+                    TorsionDriveResult {
+                        name: v.cmiles.clone(),
+                        attributes: Attributes {
+                            canonical_isomeric_explicit_hydrogen_mapped_smiles: v.cmiles,
+                            inchi_key: v.inchi_key },
+                        object_map: HashMap::from([("default".to_string(), v.record_id)]),
+                    },
+                );
+            }
+        }
+        Self {
+            meta: HashMap::new(),
+            data: vec![DataSet {
+                id: String::new(),
+                collection: String::new(),
+                name: String::new(),
+                records: records,
+            }],
+        }
     }
 }

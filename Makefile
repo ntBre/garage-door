@@ -11,4 +11,4 @@ test:
 	cargo test -- $(tflags) $(ARGS)
 
 run:
-	cargo run
+	cargo run -- $(ARGS)
