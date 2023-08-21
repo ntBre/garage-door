@@ -101,9 +101,3 @@ pub fn make_opt_results(
 
     ret
 }
-
-// 'no entry found for key' error in make_opt_results checking the cmiles_map.
-// it looks like I should be taking the cmiles straight from the record, but I
-// need to double-check how the python code actually works before plowing ahead
-// with that. Do I need to map the geometry back to the original
-// OptimizationRecord.id? Probably yes
