@@ -56,7 +56,7 @@ serialized and deserialized to JSON. Without further ado, some numbers:
 |-------------------------|---------------------|--------------------|--------------------|
 | testfiles/core-opt.json | 4.325 s ±  0.370 s  | 2.164 s ±  0.530 s | 1.567 s ±  0.036 s |
 | testfiles/core-td.json  | 16.316 s ±  0.676 s | 4.502 s ±  0.477 s | 1.134 s ±  0.021 s |
-| filtered-industry.json  | RUNNING             | 71.4 s             | 222.5 s            |
+| filtered-industry.json  | 290.1 s             | 71.4 s             | 222.5 s            |
 
 The Python numbers are taken from running either `hyperfine "python opt.py"` for
 optimization data sets or `hyperfine "python td.py"` for torsion drive data
@@ -68,7 +68,7 @@ the last column. The Rust timings are also inflated by writing the results to
 stdout, but that's somewhat unavoidable, given it has to communicate with Python
 somehow.
 
-The `filtered-industry.json` dataset has more than 70,000 records, so the
+The `filtered-industry.json` dataset has more than 72,459 records, so the
 results are not run through `hyperfine`. The command for the Python result is
 simply
 
@@ -88,12 +88,15 @@ time python python/shim.py /tmp/industry.json
 
 The Rust version plus the Python shim are comparable to, but a bit faster than,
 the pure Python version for a very small torsion drive dataset but approximately
-3 times faster for a small optimization dataset. I expect the difference to be
-much more pronounced for the industry dataset, when I get the results.
+3 times faster for a small optimization dataset. Surprisingly, the pure Python
+version performed comparably to Rust and the shim on the industry dataset.
+Actually this is very surprising because [this loop] in the
+internal-benchmarking code took 10.5 hours to run on HPC3 today. Something not
+associated with `to_records` directly must be going horribly wrong.
 
-I haven't done any profiling on the Python shim itself, so there is likely a
-better way to turn the JSON into Python objects. I plan to look into
-[PyO3](https://pyo3.rs/v0.19.2/) to see if I can convert to Python objects
+Anyway, I haven't done any profiling on the Python shim itself, so there is
+likely a much better way to turn the JSON into Python objects. I plan to look
+into [PyO3](https://pyo3.rs/v0.19.2/) to see if I can convert to Python objects
 directly (and wrap this up in a nice Python module). If not, a more compact
 serialization format may lead to significant improvements over JSON. `serde`
 makes that trivial from the Rust side, so as long as a format is available in
@@ -102,3 +105,4 @@ Python, I can try it out pretty easily.
 [Record]: https://github.com/MolSSI/QCPortal/blob/ff6f8bdf733b648e927223c89126a3ba37f88b69/qcportal/models/records.py#L251
 [Molecule]: https://docs.openforcefield.org/projects/toolkit/en/latest/api/generated/openff.toolkit.topology.Molecule.html#openff.toolkit.topology.Molecule
 [openff.toolkit.BasicResultCollection.to_records]: https://docs.openforcefield.org/projects/qcsubmit/en/latest/api/generated/openff.qcsubmit.results.BasicResultCollection.html?highlight=to_records#openff.qcsubmit.results.BasicResultCollection.to_records
+[this loop]: https://github.com/mattwthompson/ib/blob/cad8367ff413f82c0cf395ffebb9c06bb70d94c5/ibstore/_store.py#L280
