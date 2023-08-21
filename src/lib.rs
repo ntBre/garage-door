@@ -63,13 +63,6 @@ pub fn make_td_results(
             qc_grid_molecules.push(molecules[i].clone());
         }
 
-        println!(
-            "{} => {} => {}",
-            record.id,
-            cmiles_map[&record.id],
-            qc_grid_molecules.len()
-        );
-
         let cmiles = cmiles_map[&record.id].clone();
         ret.push((
             record.id,
@@ -103,7 +96,6 @@ pub fn make_opt_results(
         // do this first so we don't have to clone record.id
         let id = &molecule_ids[&record.id];
         let cmiles = cmiles_map[id].clone();
-        println!("{} => {} => {}", id, cmiles, record.geometry.len());
         ret.push((id.clone(), cmiles, vec![record.geometry]));
     }
 
