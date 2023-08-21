@@ -54,8 +54,8 @@ serialized and deserialized to JSON. Without further ado, some numbers:
 
 | Dataset                 | Python              | Rust               | Shim               |
 |-------------------------|---------------------|--------------------|--------------------|
-| testfiles/core-opt.json | 4.325 s ±  0.370 s  | 2.164 s ±  0.530 s | 2.088 s ±  0.038 s |
-| testfiles/core-td.json  | 16.316 s ±  0.676 s | 4.502 s ±  0.477 s | 1.329 s ±  0.015 s |
+| testfiles/core-opt.json | 4.325 s ±  0.370 s  | 2.164 s ±  0.530 s | 1.567 s ±  0.036 s |
+| testfiles/core-td.json  | 16.316 s ±  0.676 s | 4.502 s ±  0.477 s | 1.134 s ±  0.021 s |
 | filtered-industry.json  | RUNNING             | 71.4 s             | 222.5 s            |
 
 The Python numbers are taken from running either `hyperfine "python opt.py"` for
@@ -86,10 +86,10 @@ time python python/shim.py /tmp/industry.json
 
 ## Conclusions
 
-The Rust version plus the Python shim are comparable to the pure Python version
-for a very small torsion drive dataset but approximately 3 times faster for a
-small optimization dataset. I expect the difference to be much more pronounced
-for the industry dataset, when I get the results.
+The Rust version plus the Python shim are comparable to, but a bit faster than,
+the pure Python version for a very small torsion drive dataset but approximately
+3 times faster for a small optimization dataset. I expect the difference to be
+much more pronounced for the industry dataset, when I get the results.
 
 I haven't done any profiling on the Python shim itself, so there is likely a
 better way to turn the JSON into Python objects. I plan to look into
