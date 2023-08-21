@@ -114,6 +114,7 @@ pub struct OptimizationRecord {
     pub id: String,
     pub initial_molecule: String,
     pub final_molecule: String,
+    pub status: Status,
 }
 
 #[derive(Debug, Deserialize)]
