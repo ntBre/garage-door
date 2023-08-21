@@ -58,10 +58,10 @@ enum Commands {
 async fn main() {
     let args = Cli::parse();
     let client = FractalClient::new();
-    match args.command {
+    let results = match args.command {
         Commands::Get { name, dataset_type } => {
             let col = CollectionGetBody::new(dataset_type, name);
-            client.retrieve_dataset(col, dataset_type).await;
+            client.retrieve_dataset(col, dataset_type).await
         }
         Commands::Convert {
             filename,
@@ -72,7 +72,14 @@ async fn main() {
                 TorsionDriveResultCollection::parse_file(filename).unwrap();
             let col: CollectionGetResponse = ds.into();
             let query_limit = client.get_query_limit().await;
-            client.to_records(col, query_limit, dataset_type).await;
+            client.to_records(col, query_limit, dataset_type).await
         }
+    };
+
+    let s = serde_json::to_string_pretty(&results);
+    if s.is_err() {
+        eprintln!("error serializing result to JSON. dumping what we can");
+        println!("{:#?}", results);
     }
+    println!("{}", s.unwrap());
 }
