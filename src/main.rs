@@ -58,10 +58,44 @@ enum Commands {
 async fn main() {
     let args = Cli::parse();
     let client = FractalClient::new();
-    let results = match args.command {
+    let start = std::time::Instant::now();
+    match args.command {
         Commands::Get { name, dataset_type } => {
             let col = CollectionGetBody::new(dataset_type, name);
-            client.retrieve_dataset(col, dataset_type).await
+            let (query_limit, collection) = tokio::join! {
+                client.get_query_limit(),
+                client.get_collection(col),
+            };
+            match dataset_type {
+                CollectionType::TorsionDrive => {
+                    let records = client
+                        .torsion_drive_records(collection, query_limit)
+                        .await;
+                    let s = serde_json::to_string_pretty(&records);
+                    if s.is_err() {
+                        eprintln!(
+                            "error serializing result to JSON.\
+                            dumping what we can"
+                        );
+                        println!("{:#?}", records);
+                    }
+                    println!("{}", s.unwrap());
+                }
+                CollectionType::Optimization => {
+                    let records = client
+                        .optimization_records(collection, query_limit)
+                        .await;
+                    let s = serde_json::to_string_pretty(&records);
+                    if s.is_err() {
+                        eprintln!(
+                            "error serializing result to JSON.\
+                            dumping what we can"
+                        );
+                        println!("{:#?}", records);
+                    }
+                    println!("{}", s.unwrap());
+                }
+            }
         }
         Commands::Convert {
             filename,
@@ -72,14 +106,39 @@ async fn main() {
                 TorsionDriveResultCollection::parse_file(filename).unwrap();
             let col: CollectionGetResponse = ds.into();
             let query_limit = client.get_query_limit().await;
-            client.to_records(col, query_limit, dataset_type).await
+            match dataset_type {
+                CollectionType::TorsionDrive => {
+                    let records =
+                        client.torsion_drive_records(col, query_limit).await;
+                    let s = serde_json::to_string_pretty(&records);
+                    if s.is_err() {
+                        eprintln!(
+                            "error serializing result to JSON.\
+                            dumping what we can"
+                        );
+                        println!("{:#?}", records);
+                    }
+                    println!("{}", s.unwrap());
+                }
+                CollectionType::Optimization => {
+                    let records =
+                        client.optimization_records(col, query_limit).await;
+                    let s = serde_json::to_string_pretty(&records);
+                    if s.is_err() {
+                        eprintln!(
+                            "error serializing result to JSON.\
+                            dumping what we can"
+                        );
+                        println!("{:#?}", records);
+                    }
+                    println!("{}", s.unwrap());
+                }
+            }
         }
-    };
-
-    let s = serde_json::to_string_pretty(&results);
-    if s.is_err() {
-        eprintln!("error serializing result to JSON. dumping what we can");
-        println!("{:#?}", results);
     }
-    println!("{}", s.unwrap());
+
+    eprintln!(
+        "execution time: {:.1} s",
+        start.elapsed().as_millis() as f64 / 1000.0
+    );
 }

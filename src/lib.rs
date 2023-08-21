@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use collection::TorsionDriveResult;
 use molecule::Molecule;
-use procedure::TorsionDriveRecord;
+use procedure::{OptimizationRecord, TorsionDriveRecord};
 use serde::{Deserialize, Serialize};
 
 pub mod client;
@@ -81,9 +81,10 @@ pub fn make_td_results(
 /// return type consistent with the TorsionDrive version.
 pub fn make_opt_results(
     results: Vec<TorsionDriveResult>,
-    records: Vec<Molecule>,
+    records: Vec<OptimizationRecord>,
     molecule_ids: HashMap<String, String>,
-) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    molecules: HashMap<String, Molecule>,
+) -> Vec<(OptimizationRecord, String, Vec<Vec<f64>>)> {
     // there may be more results than records, but accessing them with this map
     // by the id stored on the records ensures that I only get the ones I want
     let cmiles_map: HashMap<_, _> = results
@@ -95,8 +96,10 @@ pub fn make_opt_results(
     for record in records {
         // do this first so we don't have to clone record.id
         let id = &molecule_ids[&record.id];
-        let cmiles = cmiles_map[id].clone();
-        ret.push((id.clone(), cmiles, vec![record.geometry]));
+        // sad clones
+        let geom = molecules[id].clone();
+        let cmiles = cmiles_map[&record.id].clone();
+        ret.push((record, cmiles, vec![geom.geometry]));
     }
 
     ret

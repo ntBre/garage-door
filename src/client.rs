@@ -5,7 +5,7 @@ use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    collection::{CollectionGetBody, CollectionGetResponse, CollectionType},
+    collection::{CollectionGetBody, CollectionGetResponse},
     make_opt_results, make_td_results,
     molecule::{Molecule, MoleculeGetBody},
     procedure::{
@@ -154,56 +154,12 @@ impl FractalClient {
         join_all(futures).await
     }
 
-    pub async fn retrieve_dataset(
-        &self,
-        collection_request: CollectionGetBody,
-        dataset_type: CollectionType,
-    ) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
-        let start = std::time::Instant::now();
-
-        // get the query_limit and the initial collection, containing all of the
-        // desired TorsionDriveRecord ids
-        let (query_limit, collection) = tokio::join! {
-            self.get_query_limit(),
-            self.get_collection(collection_request),
-        };
-
-        let ret = self.to_records(collection, query_limit, dataset_type).await;
-
-        eprintln!(
-            "execution time: {:.1} s",
-            start.elapsed().as_millis() as f64 / 1000.0
-        );
-
-        ret
-    }
-
-    /// Convert the given collection to a sequence of records and molecules.
-    /// Well, at least as close as we can get
-    pub async fn to_records(
+    pub async fn optimization_records(
         &self,
         collection: CollectionGetResponse,
         query_limit: usize,
-        dataset_type: CollectionType,
-    ) -> Vec<(TorsionDriveRecord, String, Vec<Vec<f64>>)> {
-        match dataset_type {
-            CollectionType::TorsionDrive => {
-                self.torsion_drive_records(collection, query_limit).await
-            }
-            CollectionType::Optimization => {
-                // self.optimization_records(collection, query_limit).await
-                todo!()
-            }
-        }
-    }
-
-    #[allow(unused)]
-    async fn optimization_records(
-        &self,
-        collection: CollectionGetResponse,
-        query_limit: usize,
-    ) -> Vec<(String, String, Vec<Vec<f64>>)> {
-        // request the TorsionDriveRecords corresponding to the ids in the
+    ) -> Vec<(OptimizationRecord, String, Vec<Vec<f64>>)> {
+        // request the OptimizationRecords corresponding to the ids in the
         // collection
         let records: Vec<OptimizationRecord> = self
             .get_chunked(Self::get_procedure, &collection.ids(), query_limit)
@@ -219,20 +175,24 @@ impl FractalClient {
         // molecule_ids is a map of final_molecule_ids -> original opt record
         // ids
         let mut molecule_ids = HashMap::with_capacity(records.len());
-        for opt_record in records {
-            molecule_ids.insert(opt_record.final_molecule, opt_record.id);
+        for opt_record in &records {
+            molecule_ids.insert(
+                opt_record.id.clone(),
+                opt_record.final_molecule.clone(),
+            );
         }
-        let ids: Vec<_> = molecule_ids.keys().cloned().collect();
+        let ids: Vec<_> = molecule_ids.values().cloned().collect();
 
         eprintln!("asking for {} molecules", molecule_ids.len());
 
         // get the final molecules from each optimization trajectory and store
         // as a map of id -> mol
-        let molecules: Vec<_> = self
+        let molecules: HashMap<_, _> = self
             .get_chunked(Self::get_molecule, &ids, query_limit)
             .await
             .into_iter()
             .flatten()
+            .map(|m| (m.id.clone(), m))
             .collect();
 
         let results: Vec<_> = collection
@@ -241,10 +201,10 @@ impl FractalClient {
             .flat_map(|ds| ds.records.into_values())
             .collect();
 
-        make_opt_results(results, molecules, molecule_ids)
+        make_opt_results(results, records, molecule_ids, molecules)
     }
 
-    async fn torsion_drive_records(
+    pub async fn torsion_drive_records(
         &self,
         collection: CollectionGetResponse,
         query_limit: usize,

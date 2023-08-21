@@ -53,9 +53,8 @@ async fn full() {
         "OpenFF multiplicity correction torsion drive data v1.1",
     );
 
-    let mut got = client
-        .retrieve_dataset(col, CollectionType::TorsionDrive)
-        .await;
+    let col = client.get_collection(col).await;
+    let mut got = client.torsion_drive_records(col, 400).await;
 
     got.sort_by_key(|g| g.0.id.clone());
     let got: Vec<_> = got
@@ -89,10 +88,7 @@ async fn full_opt() {
         TorsionDriveResultCollection::parse_file("testfiles/core-opt.json")
             .unwrap();
     let col: CollectionGetResponse = ds.into();
-    let query_limit = client.get_query_limit().await;
-    let mut got = client
-        .to_records(col, query_limit, CollectionType::Optimization)
-        .await;
+    let mut got = client.optimization_records(col, 400).await;
 
     got.sort_by_key(|g| g.0.id.clone());
     // NOTE: unlike above, comparing the length of the geometry (in atoms)
