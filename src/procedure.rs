@@ -109,12 +109,32 @@ impl TorsionDriveRecord {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OptimizationRecord {
+    // base identification
     pub id: String,
-    pub initial_molecule: String,
-    pub final_molecule: String,
+    pub hash_index: Option<String>,
+    pub procedure: String,
+    pub program: String,
+    pub version: usize,
+    pub protocols: Option<HashMap<String, Value>>,
+    pub extras: HashMap<String, Value>,
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+    pub error: Option<String>,
+    pub manager_name: Option<String>,
     pub status: Status,
+    pub modified_on: String,
+    pub created_on: String,
+    pub provenance: Option<Value>,
+    // input data
+    pub initial_molecule: String,
+    pub qc_spec: Value,
+    pub keywords: HashMap<String, Value>,
+    // results
+    pub energies: Vec<f64>,
+    pub final_molecule: String,
+    pub trajectory: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
