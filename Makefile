@@ -1,5 +1,10 @@
+clippy_flags =
+ifdef DENY
+    clippy_flags += -- -Dwarnings
+endif
+
 clippy:
-	cargo clippy --workspace --tests
+	cargo clippy --workspace --tests $(clippy_flags)
 
 tflags =
 
