@@ -9,6 +9,7 @@ import numpy as np
 from openff.toolkit import Molecule
 from openff.units import unit
 from qcportal.models import OptimizationRecord, TorsionDriveRecord
+from tqdm import tqdm
 
 logging.getLogger("openff.toolkit").setLevel(logging.ERROR)
 
@@ -29,11 +30,13 @@ def get_type(results):
 
 
 typ = get_type(results)
-for r in results:
+for r in tqdm(
+    results, desc="Converting to records and molecules", total=len(results)
+):
     [record, cmiles, conformers] = r
     molecule = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
     molecule.add_conformer(
         np.array(conformers[0], float).reshape(-1, 3) * unit.bohr
     )
     record = typ.parse_obj(record)
-    print(record, molecule)
+    # print(record, molecule)
