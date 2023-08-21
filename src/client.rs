@@ -197,6 +197,7 @@ impl FractalClient {
         }
     }
 
+    #[allow(unused)]
     async fn optimization_records(
         &self,
         collection: CollectionGetResponse,
