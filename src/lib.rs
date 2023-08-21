@@ -36,7 +36,7 @@ impl Status {
 /// Molecule._conformers. There's not actually code in qcsubmit to do this
 /// directly, but see results/caching.py:cached_query_torsion_drive_results for
 /// how to reconstruct its output
-pub fn make_results(
+pub fn make_td_results(
     results: Vec<TorsionDriveResult>,
     records: Vec<TorsionDriveRecord>,
     molecule_ids: HashMap<(String, String), String>,
@@ -50,7 +50,7 @@ pub fn make_results(
         .collect();
 
     let mut ret = Vec::new();
-    for record in &records {
+    for record in records {
         let mut grid_ids: Vec<_> = record.minimum_positions.keys().collect();
         grid_ids.sort_by_key(|g| {
             let x: &[_] = &['[', ']'];
@@ -70,12 +70,48 @@ pub fn make_results(
             qc_grid_molecules.len()
         );
 
+        let cmiles = cmiles_map[&record.id].clone();
         ret.push((
-            record.id.clone(),
-            cmiles_map[&record.id].clone(),
+            record.id,
+            cmiles,
             qc_grid_molecules.into_iter().map(|m| m.geometry).collect(),
         ));
     }
 
     ret
 }
+
+/// Analagous to [make_td_results] but without all of the bookkeeping mapping
+/// individual molecules back to their corresponding TorsionDrives. Just pass in
+/// a Vec<Molecule> and get back a Vec<(id, cmiles, Vec<Geometry>)>. The
+/// Vec<Geometry> will always have length one. A vector is used just to keep the
+/// return type consistent with the TorsionDrive version.
+pub fn make_opt_results(
+    results: Vec<TorsionDriveResult>,
+    records: Vec<Molecule>,
+    molecule_ids: HashMap<String, String>,
+) -> Vec<(String, String, Vec<Vec<f64>>)> {
+    // there may be more results than records, but accessing them with this map
+    // by the id stored on the records ensures that I only get the ones I want
+    let cmiles_map: HashMap<_, _> = results
+        .iter()
+        .map(|rec| (rec.record_id(), rec.cmiles()))
+        .collect();
+
+    let mut ret = Vec::new();
+    for record in records {
+        // do this first so we don't have to clone record.id
+        let id = &molecule_ids[&record.id];
+        let cmiles = cmiles_map[id].clone();
+        println!("{} => {} => {}", id, cmiles, record.geometry.len());
+        ret.push((id.clone(), cmiles, vec![record.geometry]));
+    }
+
+    ret
+}
+
+// 'no entry found for key' error in make_opt_results checking the cmiles_map.
+// it looks like I should be taking the cmiles straight from the record, but I
+// need to double-check how the python code actually works before plowing ahead
+// with that. Do I need to map the geometry back to the original
+// OptimizationRecord.id? Probably yes

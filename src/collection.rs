@@ -78,7 +78,6 @@ struct Attributes {
 pub struct TorsionDriveResult {
     pub name: String,
 
-    // there's only one attribute we care about for now
     attributes: Attributes,
 
     object_map: HashMap<String, String>,

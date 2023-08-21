@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     collection::{CollectionGetBody, CollectionGetResponse, CollectionType},
-    make_results,
+    make_opt_results, make_td_results,
     molecule::{Molecule, MoleculeGetBody},
     procedure::{
         OptimizationRecord, ProcedureGetBody, Response, TorsionDriveRecord,
@@ -212,7 +212,34 @@ impl FractalClient {
             .collect();
 
         eprintln!("{} optimization records", records.len());
-        todo!();
+
+        // get the molecule record ids corresponding to the final geometries.
+        // molecule_ids is a map of final_molecule_ids -> original opt record
+        // ids
+        let mut molecule_ids = HashMap::with_capacity(records.len());
+        for opt_record in records {
+            molecule_ids.insert(opt_record.final_molecule, opt_record.id);
+        }
+        let ids: Vec<_> = molecule_ids.keys().cloned().collect();
+
+        eprintln!("asking for {} molecules", molecule_ids.len());
+
+        // get the final molecules from each optimization trajectory and store
+        // as a map of id -> mol
+        let molecules: Vec<_> = self
+            .get_chunked(Self::get_molecule, &ids, query_limit)
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let results: Vec<_> = collection
+            .data
+            .into_iter()
+            .flat_map(|ds| ds.records.into_values())
+            .collect();
+
+        make_opt_results(results, molecules, molecule_ids)
     }
 
     async fn torsion_drive_records(
@@ -280,6 +307,6 @@ impl FractalClient {
             .flat_map(|ds| ds.records.into_values())
             .collect();
 
-        make_results(results, records, molecule_ids, molecules)
+        make_td_results(results, records, molecule_ids, molecules)
     }
 }
