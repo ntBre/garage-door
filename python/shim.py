@@ -6,6 +6,7 @@ import logging
 import sys
 
 import numpy as np
+import qcelemental
 from openff.toolkit import Molecule
 from openff.units import unit
 from qcportal.models import OptimizationRecord, TorsionDriveRecord
@@ -35,8 +36,18 @@ for r in tqdm(
 ):
     [record, cmiles, conformers] = r
     molecule = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
-    molecule.add_conformer(
-        np.array(conformers[0], float).reshape(-1, 3) * unit.bohr
-    )
+    molecule._conformers = [
+        np.array(conformers[0], float).reshape(-1, 3)
+        * qcelemental.constants.bohr2angstroms
+        * unit.angstrom
+    ]
     record = typ.parse_obj(record)
     # print(record, molecule)
+
+# most of the time is in calling `from_mapped_smiles`: 363 / 424 seconds.
+# there's nothing I can really do about that except try to multiprocess it. but
+# where are those extra 60 seconds from? 17 seconds from record.__init__ as
+# measured by commenting out molecule stuff. 15 seconds from add_conformer, as
+# measured by adding the same conformer to the same molecule over and over. if
+# you also do the np.array stuff each time, this goes up to 33 seconds. If you
+# use the known shape instead of -1, it doesn't matter
