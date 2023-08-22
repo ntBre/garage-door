@@ -7,3 +7,6 @@ python/ids.dat
 python/out.dat
 python/slow.prof
 python/tids.dat
+*.prof
+/flamegraph.svg
+/perf.data*
