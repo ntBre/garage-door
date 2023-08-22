@@ -68,9 +68,8 @@ the last column. The Rust timings are also inflated by writing the results to
 stdout, but that's somewhat unavoidable, given it has to communicate with Python
 somehow.
 
-The `filtered-industry.json` dataset has more than 72,459 records, so the
-results are not run through `hyperfine`. The command for the Python result is
-simply
+The `filtered-industry.json` dataset has 72,459 records, so the results are not
+run through `hyperfine`. The command for the Python result is simply
 
 ``` shell
 time python python/industry.py
