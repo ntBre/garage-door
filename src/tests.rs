@@ -16,6 +16,13 @@ fn de_response() {
 }
 
 #[test]
+fn de_singlept_response() {
+    let s = read_to_string("testfiles/singlept_collection.json").unwrap();
+    let c: CollectionGetResponse = serde_json::from_str(&s).unwrap();
+    dbg!(c);
+}
+
+#[test]
 fn de_procedure() {
     let s = read_to_string("testfiles/procedure.json").unwrap();
     let c: Response<TorsionDriveRecord> = serde_json::from_str(&s).unwrap();

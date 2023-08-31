@@ -95,6 +95,9 @@ async fn main() {
                     }
                     println!("{}", s.unwrap());
                 }
+                CollectionType::SinglePoint => {
+                    dbg!(collection);
+                }
             }
         }
         Commands::Convert {
@@ -133,6 +136,7 @@ async fn main() {
                     }
                     println!("{}", s.unwrap());
                 }
+                CollectionType::SinglePoint => todo!(),
             }
         }
     }

@@ -113,7 +113,19 @@ impl FractalClient {
         &self,
         body: CollectionGetBody,
     ) -> CollectionGetResponse {
-        self.get("collection", body).await.json().await.unwrap()
+        match self.get("collection", body.clone()).await.json().await {
+            Ok(r) => r,
+            Err(_) => {
+                // this is very stupid, but I'm tired of having to comment
+                // things out and add todo!() to see the text
+                std::fs::write(
+                    "/tmp/out.json",
+                    self.get("collection", body).await.text().await.unwrap(),
+                )
+                .unwrap();
+                panic!("failed get_collection")
+            }
+        }
     }
 
     pub async fn get_procedure<T: for<'a> Deserialize<'a>>(
