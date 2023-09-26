@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.4.2", features = ["derive"] }
+clap = { version = "4.4.5", features = ["derive"] }
 futures = "0.3.28"
 openff-toolkit = { git = "https://github.com/ntBre/openff-toolkit" }
 reqwest = { version = "0.11.20", features = ["json"] }
